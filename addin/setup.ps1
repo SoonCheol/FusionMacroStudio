@@ -5,8 +5,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.15'
-$required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py')
+$packageVersion = '0.3.16'
+$required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py','direct_codes.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
 function Read-Manifest([string]$path) {
     # Fusion uses an empty string for the default localized description.
@@ -62,6 +62,7 @@ function Install-Package {
     $target = Get-Target
     foreach ($name in $required) { if (!(Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf)) { throw "Missing package: $name" } }
     if (!(Test-Path -LiteralPath (Join-Path $source 'web/index.html') -PathType Leaf)) { throw 'Missing local editor assets.' }
+    if (!(Test-Path -LiteralPath (Join-Path $source 'web/data/command-codes.json') -PathType Leaf)) { throw 'Missing fixed command registry.' }
     $m = Read-Manifest (Join-Path $source 'FusionMacroStudio.manifest')
     if ($m.version -ne $packageVersion -or $m.type -ne 'addin' -or !$m.runOnStartup) { throw 'Package manifest mismatch.' }
     # Stage outside AddIns to prevent discovery of an incomplete package.

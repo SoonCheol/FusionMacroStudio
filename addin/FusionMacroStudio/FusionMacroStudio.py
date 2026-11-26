@@ -11,11 +11,12 @@ import time
 import traceback
 from .mapping import load_mapping, zoom_extents, execute_definition
 from .keyboard_hook import Hook, foreground
+from .direct_codes import load_codes
 from .local_editor import start_editor, stop_editor, revision
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.15"
+VERSION = "0.3.16"
 app = None
 handler = None
 event = None
@@ -260,7 +261,8 @@ def run(context):
         event=app.registerCustomEvent(EVENT)
         handler=Dispatch()
         event.add(handler)
-        hook=Hook(enqueue)
+        codes=load_codes(Path(__file__).parent / 'web' / 'data' / 'command-codes.json')
+        hook=Hook(enqueue,codes)
         hook.start()
         try:
             editor_server, editor_thread = start_editor(HOME, Path(__file__).parent / 'web', trace=hook.trace)
@@ -269,7 +271,7 @@ def run(context):
             log('Local editor unavailable: ' + traceback.format_exc())
         worker=threading.Thread(target=poll,daemon=True)
         worker.start()
-        log("Add-in started "+VERSION)
+        log("Add-in started "+VERSION+" / fixed command codes: "+str(len(codes)))
     except Exception:
         log(traceback.format_exc())
         stop(context)

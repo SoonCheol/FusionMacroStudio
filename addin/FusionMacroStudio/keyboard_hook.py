@@ -5,6 +5,7 @@ import os
 import threading
 import time
 from .mapping import PressState, KnobTrace
+from .direct_codes import DirectInput
 
 U = c.WinDLL("user32", use_last_error=True)
 K = c.WinDLL("kernel32", use_last_error=True)
@@ -38,11 +39,12 @@ def modifiers():
                if any(U.GetAsyncKeyState(k) & 0x8000 for k in keys))
 
 class Hook:
-    def __init__(self, dispatch):
+    def __init__(self, dispatch, codes=()):
         self.mapping = {}
         self.generation = 0
         self.dispatch = dispatch
         self.press = PressState()
+        self.direct = DirectInput(codes)
         self.trace = KnobTrace()
         self.lock = threading.RLock()
         self.thread = None
@@ -53,17 +55,23 @@ class Hook:
     def set_mapping(self, mapping):
         with self.lock:
             self.press.cancel()
+            self.direct.cancel()
             self.mapping = mapping
             self.generation += 1
     def tick(self):
         with self.lock:
-            for cmd in self.press.tick(time.monotonic(), foreground()):
+            now, active = time.monotonic(), foreground()
+            self.direct.tick(now, active)
+            for cmd in self.press.tick(now, active):
                 self.dispatch(cmd, self.generation)
     def _callback(self, code, msg, data):
         try:
             if code >= 0:
                 k = c.cast(data,c.POINTER(KBD)).contents
                 vk = k.vkCode
+                if msg in (0x100,0x104) and not 0x7c <= vk <= 0x87 and vk not in (0x10,0x11,0x12,0x5b,0x5c,0xa0,0xa1,0xa2,0xa3,0xa4,0xa5):
+                    with self.lock:
+                        self.direct.cancel()
                 if 0x7c <= vk <= 0x87 and not k.flags & 0x10:
                     with self.lock:
                         active = foreground()
@@ -72,11 +80,18 @@ class Hook:
                         now = time.monotonic()
                         if msg in (0x100,0x104):
                             mods = modifiers() if active else 0
+                            if self.direct.down(vk,mods,now,active):
+                                return 1
                             self.trace.observe(vk,mods,True,active,self.mapping,now)
                             action = self.mapping.get((mods,vk)) if active else None
                             if self.press.down(vk,action,now):
                                 return 1
                         elif msg in (0x101,0x105):
+                            consume, cmd = self.direct.up(vk,now,active)
+                            if consume:
+                                if cmd:
+                                    self.dispatch(cmd,self.generation)
+                                return 1
                             self.trace.observe(vk,0,False,active,self.mapping,now)
                             consume, cmd = self.press.up(vk,now,active)
                             if cmd:
