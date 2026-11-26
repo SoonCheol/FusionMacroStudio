@@ -22,3 +22,5 @@ Direct code mode (v0.3.16): use public Pages for new assignments. The fixed regi
 0.3.21: install once using Setup.cmd, then open http://127.0.0.1:18472/ while Fusion runs. Check update, confirm, save and close Fusion, wait for installer completion message, then restart Fusion manually. Profiles and device settings are not modified. Update package checksum and manifest are validated. Do not reopen Fusion before installation completes.
 
 0.3.22: download progress, verified ZIP reuse, latest/previous managed ZIP retention in %LOCALAPPDATA%\FusionMacroStudio\updates. Download first, choose Install or Later. Install requests a normal Fusion window close (save prompts remain), waits for exit, updates and requests restart via the running executable path. Manual close/restart fallback if unavailable. No forced termination. 0.3.21's updater can install 0.3.22 using its original manual-close flow.
+
+0.3.25: explicit permission to close Fusion, installer readiness handshake, update.log diagnostics, and user-friendly local connection messages. Older updater launches receive a separate Windows confirmation before closing Fusion. Manual installation remains available.

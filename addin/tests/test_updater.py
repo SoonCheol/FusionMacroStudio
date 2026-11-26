@@ -73,3 +73,11 @@ class UpdateTest(unittest.TestCase):
             self.assertEqual(u.snapshot()["state"],"ready")
             self.assertEqual(u.snapshot()["progress"],100)
             self.assertIsNone(u.process)
+
+    def test_close_requires_ready_and_approval(self):
+        source=(pathlib.Path(__file__).parents[1]/"setup.ps1").read_text(encoding="utf-8-sig")
+        auto=source[source.index("if ($AutomaticUpdate) {"):source.index("if ($SelfTest) {")]
+        self.assertLess(auto.index("installer.ready"),auto.index("installer.go"))
+        self.assertLess(auto.index("installer.go"),auto.index("CloseMainWindow()"))
+        self.assertLess(auto.index("CloseMainWindow()"),auto.index("Install-Package"))
+        self.assertNotIn("Stop-Process",auto)

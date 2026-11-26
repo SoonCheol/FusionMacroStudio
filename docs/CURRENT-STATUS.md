@@ -73,3 +73,5 @@
 - v0.3.23: v0.3.22 CI 실패(PowerShell 설치기 구문 오류, Python/웹 검증 성공) 원인인 중복 삽입 복구. Fusion 실행 중 수동 설치는 즉시 한국어 안내 정보창으로 차단, 스택 트레이스 미표시. 기존 자동 설치/재실행 로직과 설정 유지. Windows PowerShell 5.1 한글 표시용 UTF-8 BOM 적용. 신규 CI 및 실기 확인 필요.
 
 - v0.3.23 Pages/Windows 설치기 CI 성공. v0.3.24: 로컬 편집기 오비트 방식 선택(제한 기본/기존 자유), 별도 orbit-settings.json 저장 및 즉시 적용, 기존 키 코드·중심점·속도 유지. 제한 방식은 Fusion defaultModelingOrientation의 Y/Z up을 기준으로 수평 회전, 수직은 시선과 up의 외적, ±89° pitch 제한 및 roll 제거. 기존 문서별 up 방향이 전역 설정과 다를 수 있음. Autodesk 기본 오비트 자체 호출이 아닌 카메라 계산 방식. 실제 Fusion 검증 필요.
+
+- v0.3.24 Pages CI 성공. 사용자 0.3.23 자동 업데이트 중 연결 끊김, update-result.json 없음 보고. 원인 확정 불가. v0.3.25: Fusion 실행 중임을 명시한 종료 후 설치/취소 확인창, 설치기 준비 handshake 후 종료 요청, 별도 프로세스 stdout/stderr 및 오류 update.log 기록, 설치 준비/종료/설치/재실행 상태 기록. 구버전 자동 업데이트 호출은 설치기 자체 종료 확인창 제공. 강제 종료 없음. 연결 끊김 안내 개선. 실제 Windows 프로세스 생존 및 Fusion 재실행 미검증.

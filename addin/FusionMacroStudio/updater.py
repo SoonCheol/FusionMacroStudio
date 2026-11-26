@@ -10,6 +10,7 @@ import time
 import subprocess
 import tempfile
 import threading
+import traceback
 from urllib.request import urlopen
 import zipfile
 
@@ -156,6 +157,14 @@ class Updater:
         self.folder = None
         self.process = None
         self.result = self.home / "update-result.json"
+        self.logfile = self.home / "update.log"
+    def log(self, text):
+        try:
+            self.home.mkdir(parents=True, exist_ok=True)
+            with self.logfile.open("a",encoding="utf-8") as stream:
+                stream.write(time.strftime("%Y-%m-%d %H:%M:%S ")+str(text)+"\n")
+        except OSError:
+            pass
     def snapshot(self):
         with self.lock:
             if self.state == "scheduled" and self.process and self.process.poll() is not None:
@@ -173,7 +182,8 @@ class Updater:
                 except (ValueError, OSError):
                     pass
             return {"current": self.version, "latest": self.info["version"] if self.info else None,
-                    "state": self.state, "error": self.error, "last_result": result, "progress":self.progress}
+                    "state": self.state, "error": self.error, "last_result": result, "progress":self.progress,
+                    "fusion_running": True}
     def request(self, action):
         with self.lock:
             if self.state in ("checking", "downloading", "preparing", "scheduled"):
@@ -192,12 +202,14 @@ class Updater:
             else:
                 raise ValueError("Check for a newer version first")
             self.error = ""
+            self.log("Requested "+action+" from Fusion PID "+str(os.getpid()))
             threading.Thread(target=self._run, args=(job,), daemon=True).start()
             return self.snapshot()
     def _run(self, job):
         try:
             job()
         except Exception as exc:
+            self.log(traceback.format_exc())
             with self.lock:
                 self.state = "error"
                 self.error = str(exc)
@@ -233,16 +245,42 @@ class Updater:
             exe = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
             if self.result.exists():
                 self.result.unlink()
-            proc = subprocess.Popen([str(exe), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                                     "-File", str(folder / "setup.ps1"), "-AutomaticUpdate",
-                                     "-WaitForPid", str(os.getpid()), "-ExpectedVersion", info["version"],
-                                     "-RestartFusion", "-RequestClose"],
-                                    cwd=str(folder), creationflags=0x00000008 | 0x00000200,
-                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            args = [str(exe), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                    "-File", str(folder / "setup.ps1"), "-AutomaticUpdate",
+                    "-WaitForPid", str(os.getpid()), "-ExpectedVersion", info["version"],
+                    "-RestartFusion", "-RequestClose", "-Handshake"]
+            self.log("Launching installer "+info["version"])
+            # Prefer a detached process outside a possible parent job. If Windows
+            # refuses BREAKAWAY, retry normally and verify the child handshake.
+            with self.logfile.open("ab") as stream:
+                kwargs = dict(cwd=str(folder), stdin=subprocess.DEVNULL, stdout=stream, stderr=stream)
+                try:
+                    proc = subprocess.Popen(args, creationflags=0x01000000 | 0x00000008 | 0x00000200, **kwargs)
+                except OSError as exc:
+                    if getattr(exc, "winerror", None) not in (5,87):
+                        raise
+                    self.log("Breakaway unavailable; retry detached: "+str(exc))
+                    proc = subprocess.Popen(args, creationflags=0x00000008 | 0x00000200, **kwargs)
+            self.log("Installer PID "+str(proc.pid))
+            # The child cannot request closure until it has initialized and the
+            # parent has published scheduled. Old packages are not offered by latest.
+            ready = folder / "installer.ready"
+            deadline = time.monotonic()+20
+            while not ready.is_file():
+                if proc.poll() is not None:
+                    raise RuntimeError("Installer exited before ready (code %s). See update.log." % proc.returncode)
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("Installer readiness timeout. See update.log.")
+                time.sleep(.10)
+            with self.lock:
+                self.folder = folder
+                self.process = proc
+                self.state = "scheduled"
+            (folder/"installer.go").write_text("approved",encoding="ascii")
+            self.log("Installer ready; close approved")
         except Exception:
-            shutil.rmtree(folder, ignore_errors=True)
+            # If a child was launched but not authorized it will time out without
+            # touching Fusion. Keep its folder until it exits.
+            if "proc" not in locals() or proc.poll() is not None:
+                shutil.rmtree(folder, ignore_errors=True)
             raise
-        with self.lock:
-            self.folder = folder
-            self.process = proc
-            self.state = "scheduled"

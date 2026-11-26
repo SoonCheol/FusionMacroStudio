@@ -1,11 +1,11 @@
 ﻿# FusionMacroStudio only. No admin rights required. Keep other add-ins intact.
-param([switch]$SelfTest,[switch]$AutomaticUpdate,[int]$WaitForPid=0,[string]$ExpectedVersion='',[switch]$RestartFusion,[switch]$RequestClose)
+param([switch]$SelfTest,[switch]$AutomaticUpdate,[int]$WaitForPid=0,[string]$ExpectedVersion='',[switch]$RestartFusion,[switch]$RequestClose,[switch]$Handshake)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.24'
+$packageVersion = '0.3.25'
 $required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py','direct_codes.py','updater.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
 function Read-Manifest([string]$path) {
@@ -107,13 +107,33 @@ if ($AutomaticUpdate) {
         if ($SelfTest -or $ExpectedVersion -ne $packageVersion -or $WaitForPid -le 0) { throw 'Invalid automatic update request.' }
         $fusionPath = $null
         $fusionProcess = Get-Process -Id $WaitForPid -ErrorAction SilentlyContinue
-        if ($fusionProcess -and $fusionProcess.ProcessName -in @('Fusion360','Fusion')) {
+        if ($fusionProcess) {
             try { $fusionPath = $fusionProcess.Path } catch {}
         }
+        if ($Handshake) {
+            Write-UpdateResult 'ready' ''
+            Set-Content -LiteralPath (Join-Path $PSScriptRoot 'installer.ready') -Value 'ready' -Encoding ASCII
+            $approval = Join-Path $PSScriptRoot 'installer.go'
+            $readyDeadline = [DateTime]::UtcNow.AddSeconds(30)
+            while (!(Test-Path -LiteralPath $approval -PathType Leaf)) {
+                if ([DateTime]::UtcNow -ge $readyDeadline) { throw '설치 준비 확인에 실패했습니다. Fusion은 종료하지 않았습니다.' }
+                Start-Sleep -Milliseconds 100
+            }
+            # Give the HTTP response/poll a chance to reach the browser.
+            Start-Sleep -Milliseconds 1200
+        } elseif ($RequestClose -and $fusionProcess) {
+            # Compatibility with v0.3.23/24 launchers: ask explicitly here.
+            $answer = [Windows.Forms.MessageBox]::Show('Fusion이 실행 중입니다. 작업을 저장하고 Fusion 종료 후 설치하시겠습니까?','Fusion Macro Studio',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Question)
+            if ($answer -ne [Windows.Forms.DialogResult]::Yes) { Write-UpdateResult 'cancelled' ''; return }
+        }
         Write-UpdateResult 'waiting' ''
-        if ($RequestClose -and $fusionProcess -and $fusionProcess.ProcessName -in @('Fusion360','Fusion')) {
-            # Normal window close only. Fusion owns its save dialogs. Never kill the process.
-            try { [void]$fusionProcess.CloseMainWindow() } catch {}
+        if ($RequestClose -and $fusionProcess) {
+            # Only the confirmed parent PID is targeted. Normal close, no kill.
+            $closeRequested = $false
+            try { $closeRequested = $fusionProcess.CloseMainWindow() } catch {}
+            if (!$closeRequested -and (Get-Process -Id $WaitForPid -ErrorAction SilentlyContinue)) {
+                [Windows.Forms.MessageBox]::Show('작업을 저장하고 Fusion을 완전히 종료해 주세요. 종료가 확인되면 설치가 자동으로 진행됩니다.','Fusion Macro Studio',[Windows.Forms.MessageBoxButtons]::OK,[Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+            }
         }
         $deadline = [DateTime]::UtcNow.AddMinutes(30)
         while ((Get-Process -Id $WaitForPid -ErrorAction SilentlyContinue) -or (Get-Process -Name 'Fusion360','Fusion' -ErrorAction SilentlyContinue)) {
@@ -123,6 +143,7 @@ if ($AutomaticUpdate) {
         $target = Get-Target
         $installed = Read-Manifest (Join-Path $target 'FusionMacroStudio.manifest')
         if ([version]$installed.version -ge [version]$packageVersion) { throw 'Installed version is already current or newer.' }
+        Write-UpdateResult 'installing' ''
         Install-Package
         Write-UpdateResult 'installed' ''
         $restarted = $false
@@ -139,6 +160,7 @@ if ($AutomaticUpdate) {
     } catch {
         $errorText = if ($_.Exception.Message -eq 'FMS_FUSION_RUNNING') { 'Fusion is running. Save and close Fusion completely before installation.' } else { $_.Exception.Message }
         Write-UpdateResult 'error' $errorText
+        Write-Host ($errorText + [Environment]::NewLine + $_.ScriptStackTrace)
         [Windows.Forms.MessageBox]::Show($errorText,'Fusion Macro Studio update failed') | Out-Null
         exit 1
     } finally {

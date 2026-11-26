@@ -53,3 +53,6 @@ Fusion 실행 후 Chrome/Edge에서 http://127.0.0.1:18472/ 접속. 기존 프�
 
 ## v0.3.22 DeckForge 방식 업데이트
 후속 버전 배포 후 0.3.22 로컬 편집기에서 업데이트 클릭, 진행률 확인, 나중에 선택 시 Fusion 유지, 재설치 시 ZIP 재사용, 설치 클릭 후 Fusion 정상 저장 확인창 및 종료/설치/재실행 확인. 기존 등록/프로필 유지. `%LOCALAPPDATA%\\FusionMacroStudio\\updates`의 관리 ZIP 최신·직전 및 무관 파일 유지 확인. 자동 재실행 불가 시 수동 실행 안내. 0.3.21에서 0.3.22로 갱신할 때는 이전 UI의 종료/재실행 안내 적용.
+
+## v0.3.25 업데이트
+Fusion 실행 중 로컬 편집기에서 업데이트 다운로드 → 종료 후 설치/취소 확인. 취소 시 Fusion 유지. 승인 시 installer.ready/go 준비 후 정상 종료 요청, 저장 확인창 유지, 재실행 확인. 구버전에서 업데이트 시 새 설치기의 별도 종료 승인 안내. 실패 시 %LOCALAPPDATA%\\FusionMacroStudio\\update.log 및 update-result.json 확인. 실제 프로세스 검증 필요.

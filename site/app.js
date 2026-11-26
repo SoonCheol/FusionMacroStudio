@@ -170,7 +170,7 @@ if(localMode){
   finally{orbitSelect.disabled=false}
  };
  $('updateBar').hidden=false;
- let updatePolling=false,updateState='idle',updateData=null;
+ let updatePolling=false,updateState='idle',updateData=null,closeApproved=false;
  function showUpdate(data){
   updateData=data;updateState=data.state;
   $('updateVersion').textContent='현재 '+data.current+' · 최신 '+(data.latest||'확인 전');
@@ -193,7 +193,8 @@ if(localMode){
  }
  function confirmInstall(){
   if(!updateSafe()||updateState!=='ready')return;
-  $('updateConfirmText').textContent='Fusion Macro Studio '+updateData.latest+' 다운로드 완료. 지금 설치하시겠습니까?';
+  $('updateConfirmText').textContent='Fusion Macro Studio '+updateData.latest+' 다운로드 완료. '+(updateData.fusion_running===false?'지금 설치하시겠습니까?':'Fusion이 실행 중입니다. 종료 후 설치하시겠습니까?');
+  $('updateNow').textContent=updateData.fusion_running===false?'설치':'종료 후 설치';
   $('updateConfirm').showModal();
  }
  async function updateAction(action){
@@ -214,19 +215,19 @@ if(localMode){
       return;
      }
     }catch(e){
-     if(updateState!=='scheduled')throw e;
-     $('updateMessage').textContent='Fusion 설치 및 재실행 대기 중…';
-     if(++disconnected>=120){$('updateMessage').textContent='Fusion 재연결 대기 시간 초과 · 설치 안내를 확인하고 페이지를 새로고침하세요.';return;}
+     if(!closeApproved||!['preparing','scheduled'].includes(updateState))throw e;
+     $('updateMessage').textContent='Fusion 종료 후 설치 및 재실행 대기 중…';
+     if(++disconnected>=120){$('updateMessage').textContent='Fusion 재연결 대기 중 · 설치 안내를 확인하고 다시 실행한 후 새로고침하세요.';$('checkUpdate').disabled=false;return;}
     }
    }
    if(action==='download'&&data.state==='ready')confirmInstall();
-  }catch(e){$('updateMessage').textContent='업데이트 오류: '+e.message;$('checkUpdate').disabled=false;}
+  }catch(e){$('updateMessage').textContent=e instanceof TypeError?'Fusion과 연결되지 않았습니다. Fusion을 실행한 후 업데이트를 확인하세요.':'업데이트 오류: '+e.message;$('checkUpdate').disabled=false;}
   finally{updatePolling=false}
  }
  $('checkUpdate').onclick=()=>updateAction('check');
  $('installUpdate').onclick=()=>{if(!updateSafe())return;if(updateState==='ready')confirmInstall();else updateAction('download')};
  $('updateLater').onclick=()=>$('updateConfirm').close();
- $('updateNow').onclick=()=>{if(!updateSafe()){$('updateConfirm').close();return;}$('updateConfirm').close();updateAction('install')};
+ $('updateNow').onclick=()=>{if(!updateSafe()){$('updateConfirm').close();return;}closeApproved=true;$('updateConfirm').close();updateAction('install')};
  updateAction(null);
  $('knobTrace').hidden=false;
  $('startTrace').onclick=async()=>{
