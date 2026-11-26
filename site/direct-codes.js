@@ -17,19 +17,28 @@ export const HOLD_MARKERS=['__fms_hold_pan__','__fms_hold_vertical__'];
 // Exclude every hold marker from the digit alphabet to avoid simultaneous-key collision.
 export const KNOB_MARKERS=['__fms_knob_hold_1__','__fms_knob_hold_2__','__fms_knob_hold_3__'];
 const PAIR_DIGITS=[104,105,106,110,111,112];
-export function pairBinding(knob,normal,held){
+export function pairEligible(id,ids){return id===null||(ids.includes(id)&&![...HOLD_MARKERS,...KNOB_MARKERS].includes(id))}
+export function pairBinding(knob,normal,held,ids=FAST_CAMERA){
+ if(!Number.isInteger(knob)||knob<0||knob>2||!pairEligible(normal,ids)||!pairEligible(held,ids))throw Error('지원하지 않는 노브 회전 명령');
  const a=normal===null?11:FAST_CAMERA.indexOf(normal),b=held===null?11:FAST_CAMERA.indexOf(held);
- if(!Number.isInteger(knob)||knob<0||knob>2||a<0||b<0)throw Error('지원하지 않는 노브 회전 명령');
- let n=a*12+b;const digits=Array(3);
- for(let i=2;i>=0;i--){digits[i]=PAIR_DIGITS[n%6];n=Math.floor(n/6)}
+ const encode=(n,len)=>{const out=Array(len);for(let i=len-1;i>=0;i--){out[i]=PAIR_DIGITS[n%6];n=Math.floor(n/6)}return out};
+ // Keep short camera-only pairs. The previously invalid first digit 5 is an extended frame marker.
+ const digits=a>=0&&b>=0?encode(a*12+b,3):[PAIR_DIGITS[5],...encode(normal===null?CAPACITY:ids.indexOf(normal),6),...encode(held===null?CAPACITY:ids.indexOf(held),6)];
  return {type:'key',delay:0,steps:[{mods:2,code:110+knob},...digits.map(code=>({mods:1,code}))]};
 }
-export function pairInfo(b){
+export function pairInfo(b,ids=FAST_CAMERA){
  const s=b?.steps;
- if(b?.type!=='key'||b.delay!==0||s?.length!==4||s[0]?.mods!==2||s[0].code<110||s[0].code>112)return null;
- let n=0;for(const x of s.slice(1)){const d=PAIR_DIGITS.indexOf(x?.code);if(x?.mods!==1||d<0)return null;n=n*6+d}
- if(n>=144)return null;
- return {knob:s[0].code-110,normal:FAST_CAMERA[Math.floor(n/12)]||null,held:FAST_CAMERA[n%12]||null};
+ if(b?.type!=='key'||b.delay!==0||![4,14].includes(s?.length)||s[0]?.mods!==2||s[0].code<110||s[0].code>112)return null;
+ const digits=s.slice(1).map(x=>x?.mods===1?PAIR_DIGITS.indexOf(x.code):-1);
+ if(digits.includes(-1))return null;
+ const decode=arr=>arr.reduce((n,d)=>n*6+d,0);
+ if(digits.length===3){const n=decode(digits);if(n>=144)return null;return {knob:s[0].code-110,normal:FAST_CAMERA[Math.floor(n/12)]||null,held:FAST_CAMERA[n%12]||null}}
+ if(digits[0]!==5)return null;
+ const a=decode(digits.slice(1,7)),c=decode(digits.slice(7,13));
+ if((a!==CAPACITY&&!ids[a])||(c!==CAPACITY&&!ids[c]))return null;
+ const normal=a===CAPACITY?null:ids[a],held=c===CAPACITY?null:ids[c];
+ if(!pairEligible(normal,ids)||!pairEligible(held,ids))return null;
+ return {knob:s[0].code-110,normal,held};
 }
 export function commandBinding(index,ids){
  const id=ids[index],c=FAST_CAMERA.indexOf(id),h=HOLD_MARKERS.indexOf(id),k=KNOB_MARKERS.indexOf(id);
@@ -39,7 +48,7 @@ export function commandBinding(index,ids){
  return directBinding(index);
 }
 export function directIndex(b,ids=[]){
- const pair=pairInfo(b);if(pair){const i=ids.indexOf(pair.normal);return i>=0?i:null}
+ const pair=pairInfo(b,ids);if(pair){const i=ids.indexOf(pair.normal);return i>=0?i:null}
  if(b?.type==='key'&&b.delay===0){
   const s=b.steps;
   let id;

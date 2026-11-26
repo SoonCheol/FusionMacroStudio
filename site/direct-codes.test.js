@@ -42,3 +42,7 @@ test('short camera and held markers roundtrip',()=>{
 test('independent camera pair roundtrip and restore',()=>{
  for(let k=0;k<3;k++)for(const normal of [...FAST_CAMERA,null])for(const held of [...FAST_CAMERA,null]){const b=pairBinding(k,normal,held),slot=16+3*k,r=reports(0,slot,b)[0];r[0]=250;assert.deepEqual(pairInfo(readBinding(r)),{knob:k,normal,held});const p=blank();p.layers[0].bindings[slot]=b;if(normal)p.layers[0].fusion[slot]={id:normal,name:normal};assert.deepEqual(profileChanges(p,ids).changes,[{layer:0,slot,binding:b}]);}
 });
+
+test('extended pair preserves arbitrary fixed commands and camera pair remains short',()=>{
+ const normal='DrawPolyline',held='__fms_pivot_origin__';assert.ok(ids.includes(normal));const b=pairBinding(1,normal,held,ids);assert.equal(b.steps.length,14);const raw=reports(1,19,b)[0];raw[0]=250;assert.deepEqual(pairInfo(readBinding(raw),ids),{knob:1,normal,held});const p=blank();p.layers[1].bindings[19]=b;p.layers[1].fusion[19]={id:normal,name:normal};assert.deepEqual(profileChanges(p,ids).changes,[{layer:1,slot:19,binding:b}]);assert.equal(pairBinding(1,'__fms_orbit_left__','__fms_pan_up__',ids).steps.length,4);
+});

@@ -63,7 +63,7 @@ export function profileChanges(profile,codes=[]){
  const changes=[],skipped=[];
  for(let layer=0;layer<3;layer++){const l=profile.layers[layer];for(const slot of SLOTS){
    const f=l.fusion[slot],b=l.bindings[slot];if(!f&&!b)continue;
-   const pair=pairInfo(b),index=directIndex(b,codes);
+   const pair=pairInfo(b,codes),index=directIndex(b,codes);
    if(pair&&(slot<16||(slot-16)%3===1||Math.floor((slot-16)/3)!==pair.knob)){skipped.push({layer,slot});continue;}
    if(pair&&f&&f.id!==pair.normal){skipped.push({layer,slot});continue;}
    if(index!==null&&KNOB_MARKERS.includes(codes[index])&&slot!==17+3*KNOB_MARKERS.indexOf(codes[index])){skipped.push({layer,slot});continue;}

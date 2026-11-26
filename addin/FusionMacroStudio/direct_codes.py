@@ -95,18 +95,30 @@ class DirectInput:
             return True,None
         self.deadline=now+self.timeout
         if self.pair is not None:
-            if len(self.frame)<3:
-                return True,None
             knob=self.pair
             digits=[d+124 for d in self.frame]
-            self.cancel()
             if any(d not in PAIR_DIGITS for d in digits):
+                self.cancel()
                 return True,None
-            n=0
-            for d in digits:n=n*6+PAIR_DIGITS.index(d)
-            if n>=144:return True,None
+            digits=[PAIR_DIGITS.index(d) for d in digits]
+            extended=bool(digits and digits[0]==5)
+            if len(digits)<(13 if extended else 3):
+                return True,None
+            self.cancel()
             held=127+knob in self.markers
             if held:self.marker_deadline=now+10
+            def decode(values):
+                n=0
+                for d in values:n=n*6+d
+                return n
+            if extended:
+                a,b=decode(digits[1:7]),decode(digits[7:13])
+                if any(i!=CAPACITY and (i>=len(self.ids) or self.ids[i] in HOLD_MARKERS.values()) for i in (a,b)):
+                    return True,None
+                i=b if held else a
+                return True,self.ids[i] if i<len(self.ids) else None
+            n=decode(digits)
+            if n>=144:return True,None
             i=n%12 if held else n//12
             return True,FAST_CAMERA[i] if i<len(FAST_CAMERA) and FAST_CAMERA[i] in self.ids else None
         if self.short and len(self.frame)==1:

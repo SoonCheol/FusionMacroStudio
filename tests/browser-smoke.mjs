@@ -14,7 +14,7 @@ await page.addInitScript(()=>{
   async sendReport(id,bytes){
    const emit=values=>{const a=new Uint8Array(64);a.set(values);for(const fn of listeners)fn({reportId:3,data:new DataView(a.buffer)})};
    if(bytes[0]===251)emit([251,12,3]);
-   if(bytes[0]===250)for(const slot of slots)emit([250,slot,bytes[3],1,0,0,0,0,0,1,0,0]);
+   if(bytes[0]===250)for(const slot of slots)emit([250,slot,bytes[3],1,0,0,0,0,0,1,0,bytes[3]===1&&slot===19?104:0]);
   }};
  Object.defineProperty(navigator,'hid',{configurable:true,value:{requestDevice:async()=>[device],addEventListener(t,fn){disconnect.add(fn)}}});
  window.fakeDisconnect=()=>{for(const fn of disconnect)fn({device})};
@@ -71,7 +71,6 @@ try{
  await page.locator('#ko').click();await page.locator('#search').fill('구성요소');
  await verifyLabels('Korean search 1280');
  await page.locator('#resetSearch').click();
- page.once('dialog',d=>d.accept());
  await page.locator('[data-command-id="DrawPolyline"]').dragTo(page.locator('#keys .key').first());
  assert.ok((await page.locator('#keys .key').first().innerText()).includes('선'));
  await verifyLabels('Assigned key');
@@ -82,7 +81,7 @@ try{
  await verifyLabels('Theme and search');
  await page.screenshot({path:'browser-preview/editor-assigned.png'});
  await page.locator('#camera').click();
- for(const [id,i] of [['__fms_orbit_left__',0],['__fms_orbit_right__',2]]){page.once('dialog',d=>d.accept());await page.locator('[data-command-id="'+id+'"]').dragTo(page.locator('#knobs .knob').first().locator('.knob-action').nth(i));}
+ for(const [id,i] of [['__fms_orbit_left__',0],['__fms_orbit_right__',2]]){await page.locator('[data-command-id="'+id+'"]').dragTo(page.locator('#knobs .knob').first().locator('.knob-action').nth(i));}
  await page.locator('.knob-switch').first().click();
  assert.equal(await page.locator('.knob-switch').first().getAttribute('aria-checked'),'true');
  assert.equal(await page.locator('.knob-switch').nth(1).getAttribute('aria-checked'),'false');
@@ -96,6 +95,13 @@ try{
  await page.locator('.knob-switch').first().click();
  assert.ok((await page.locator('#knobs .knob').first().innerText()).includes('아래쪽 팬'));
  await page.locator('.knob-switch').first().click();
+ await page.locator('.knob-switch').nth(1).click();
+ await page.locator('#search').fill('DrawPolyline');
+ page.once('dialog',d=>d.accept());
+ await page.locator('[data-command-id="DrawPolyline"]').dragTo(page.locator('#knobs .knob').nth(1).locator('.knob-action').first());
+ assert.ok((await page.locator('#knobs .knob').nth(1).innerText()).includes('선'));
+ await page.locator('.knob-switch').nth(1).click();
+ assert.ok((await page.locator('#knobs .knob').nth(1).locator('.knob-action').first().innerText()).includes('미설정'));
  page.once('dialog',d=>d.accept());
  await page.locator('#clearLayer').click();
  assert.equal(await page.locator('#keys .key img').count(),0);
