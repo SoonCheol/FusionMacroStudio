@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {words,fittedSize} from './word-labels.js';
+test('labels only split at whitespace',()=>{assert.deepEqual(words('중심 대 중심 슬롯'),['중심','대','중심','슬롯']);assert.deepEqual(words('구성요소 끌기'),['구성요소','끌기']);assert.deepEqual(words('T-Spline 3D 형상'),['T-Spline','3D','형상']);assert.deepEqual(words('   한글\t단어  '),['한글','단어'])});
+test('long words shrink to fit instead of being split',()=>{assert.equal(fittedSize(12,80,60),12);assert.equal(fittedSize(12,60,90),8);assert.ok(fittedSize(12,35,80)*80/12<=35);assert.equal(fittedSize(12,0,80),12)});

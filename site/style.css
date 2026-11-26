@@ -32,3 +32,9 @@
 .menu-tabs button{height:auto;min-height:31px;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
 #gallery .command-card{min-height:116px;height:auto}
 #gallery .command-card .hint{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center}
+
+/* UI rule: wrap only at existing whitespace, never inside a word. */
+.command-card .name,.key .name,.knob-action .name,.menu-tabs button,.menu-name,#gallery .command-card .hint{word-break:keep-all;overflow-wrap:normal;hyphens:none;white-space:normal}
+.word-label{display:block;min-width:0;max-width:100%;word-break:keep-all;overflow-wrap:normal;hyphens:none;white-space:normal}
+.whole-word{display:inline-block;white-space:nowrap;word-break:keep-all;overflow-wrap:normal;hyphens:none}
+.menu-name{width:100%;line-height:1.3;text-align:center}
