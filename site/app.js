@@ -159,7 +159,7 @@ async function syncProfile(summary){
  }catch(e){syncDirty=true;persist();state(summary+' · Fusion 반영 실패: '+e.message+' · 쓰기로 재시도');log(e.message)}
 }
 if(localMode){
- $('localUpdateLink').hidden=true;
+ $('publicUpdateBar').hidden=true;
  $('orbitSettings').style.display='';
  const orbitSelect=$('orbitMode'),orbitStatus=$('orbitModeStatus');
  localApi('orbit-mode').then(data=>{orbitSelect.value=data.mode;orbitSelect.disabled=false;orbitStatus.textContent='즉시 적용'}).catch(e=>{orbitStatus.textContent='회전 설정 조회 실패: '+e.message});
