@@ -4,6 +4,25 @@ const {chromium}=await import(process.env.FMS_PLAYWRIGHT);
 const browser=await chromium.launch({headless:true});
 await mkdir('browser-preview',{recursive:true});
 const page=await browser.newPage({viewport:{width:1920,height:1080},locale:'ko-KR'});
+await page.addInitScript(()=>{
+ const slots=[...Array.from({length:12},(_,i)=>i+1),...Array.from({length:9},(_,i)=>i+16)];
+ const r={reportId:3,items:[{reportSize:8,reportCount:64}]};
+ const listeners=new Set(),disconnect=new Set();
+ const device={vendorId:0x514c,productId:0x8842,opened:false,collections:[{usagePage:0xff00,usage:1,inputReports:[r],outputReports:[r]}],
+  async open(){this.opened=true},async close(){this.opened=false},
+  addEventListener(t,fn){listeners.add(fn)},removeEventListener(t,fn){listeners.delete(fn)},
+  async sendReport(id,bytes){
+   const emit=values=>{const a=new Uint8Array(64);a.set(values);for(const fn of listeners)fn({reportId:3,data:new DataView(a.buffer)})};
+   if(bytes[0]===251)emit([251,12,3]);
+   if(bytes[0]===250)for(const slot of slots)emit([250,slot,bytes[3],1,0,0,0,0,0,1,0,0]);
+  }};
+ Object.defineProperty(navigator,'hid',{configurable:true,value:{requestDevice:async()=>[device],addEventListener(t,fn){disconnect.add(fn)}}});
+ window.fakeDisconnect=()=>{for(const fn of disconnect)fn({device})};
+ const profile={format:'fusion-macro-studio-v1',knobBase:16,layers:Array.from({length:3},()=>({fusion:{},bindings:{}}))};
+ profile.layers[0].fusion[1]={id:'DrawPolyline',name:'선'};
+ profile.layers[0].bindings[1]={type:'key',steps:[{mods:0,code:104}],delay:0};
+ localStorage.setItem('fusion-macro-studio.v1',JSON.stringify(profile));
+});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const url='http://127.0.0.1:8765/';
 async function settle(){
@@ -32,6 +51,12 @@ try{
  await page.goto(url);await page.locator('#commands .command-card').first().waitFor();
  assert.equal(await page.locator('#keys .key').count(),12);
  assert.equal(await page.locator('.knob-action').count(),9);
+ assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);
+ assert.ok(await page.locator('#keys .key .name').first().innerText()==='');
+ await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
+ assert.equal(await page.locator('#keys .key img').count(),0);
+ await page.locator('#read').click();await page.locator('#deviceStatus').filter({hasText:'63/63'}).waitFor();
+ assert.equal(await page.locator('#keys .key img').count(),0);
  await verifyLabels('Korean initial');
  await page.screenshot({path:'browser-preview/editor-ko.png'});
  await page.locator('#resetSearch').click();
@@ -43,6 +68,7 @@ try{
  await page.locator('#ko').click();await page.locator('#search').fill('구성요소');
  await verifyLabels('Korean search 1280');
  await page.locator('#resetSearch').click();
+ page.once('dialog',d=>d.accept());
  await page.locator('[data-command-id="DrawPolyline"]').dragTo(page.locator('#keys .key').first());
  assert.ok((await page.locator('#keys .key').first().innerText()).includes('선'));
  await verifyLabels('Assigned key');
@@ -52,6 +78,9 @@ try{
  await page.locator('#search').fill('DrawPolyline');
  await verifyLabels('Theme and search');
  await page.screenshot({path:'browser-preview/editor-assigned.png'});
+ await page.evaluate(()=>window.fakeDisconnect());
+ assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);
+ assert.equal(await page.locator('#keys .key .name').first().innerText(),'');
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
  await verifyLabels('Icon gallery');
  await page.screenshot({path:'browser-preview/gallery.png'});
