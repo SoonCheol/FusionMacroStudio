@@ -1,6 +1,6 @@
 {
   "name": "fusion-macro-studio",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Fusion Macro Studio Windows editor",
   "author": "Fusion Macro Studio",
   "main": "main.cjs",
@@ -25,7 +25,8 @@
       "storage.cjs",
       "site/**",
       "package.json",
-      "assets/app-icon.png"
+      "assets/app-icon.png",
+      "addin-release.cjs"
     ],
     "extraResources": [
       {

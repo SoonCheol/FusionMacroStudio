@@ -1230,6 +1230,14 @@
     "__fms_hold_vertical__",
     "__fms_knob_hold_1__",
     "__fms_knob_hold_2__",
-    "__fms_knob_hold_3__"
+    "__fms_knob_hold_3__",
+    "__fms_orbit_down_constrained__",
+    "__fms_orbit_down_free__",
+    "__fms_orbit_left_constrained__",
+    "__fms_orbit_left_free__",
+    "__fms_orbit_right_constrained__",
+    "__fms_orbit_right_free__",
+    "__fms_orbit_up_constrained__",
+    "__fms_orbit_up_free__"
   ]
 }

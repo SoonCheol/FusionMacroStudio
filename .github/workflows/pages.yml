@@ -34,13 +34,14 @@ jobs:
         run: |
           node --check desktop/main.cjs
           node --check desktop/preload.cjs
-          node --test desktop/storage.test.cjs
+          node --test desktop/storage.test.cjs desktop/addin-release.test.cjs
       - name: Package Windows editor and bundled add-in
         shell: pwsh
         run: |
           Copy-Item -LiteralPath site -Destination desktop/site -Recurse
           New-Item -ItemType Directory -Path desktop/addin-package | Out-Null
           Copy-Item -LiteralPath addin/setup.ps1 -Destination desktop/addin-package
+          Copy-Item -LiteralPath desktop/prepare-release.ps1 -Destination desktop/addin-package
           Copy-Item -LiteralPath addin/FusionMacroStudio -Destination desktop/addin-package/FusionMacroStudio -Recurse
           Copy-Item -LiteralPath site -Destination desktop/addin-package/FusionMacroStudio/web -Recurse
           & ./desktop/create-app-icon.ps1 -Source ./desktop/assets/app-icon.png -OutputDirectory ./desktop/build

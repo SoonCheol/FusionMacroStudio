@@ -1,5 +1,6 @@
 """Fixed registry decoder; independent of slot and legacy profile."""
 import json
+import re
 from pathlib import Path
 
 CAPACITY = 11**4
@@ -51,7 +52,12 @@ class DirectInput:
         if self.markers:
             self.marker_deadline=now+10
         mode=next(reversed(self.markers.values()),None) if self.markers else None
-        return PAN.get(cmd,cmd) if mode=="__fms_hold_pan__" else VERTICAL.get(cmd,cmd) if mode=="__fms_hold_vertical__" else cmd
+        variant=re.fullmatch(r"(__fms_orbit_(?:left|right|up|down))_(free|constrained)__",cmd)
+        base=variant.group(1)+"__" if variant else cmd
+        routed=PAN.get(base,base) if mode=="__fms_hold_pan__" else VERTICAL.get(base,base) if mode=="__fms_hold_vertical__" else base
+        if variant and routed.startswith("__fms_orbit_"):
+            return routed[:-2]+"_"+variant.group(2)+"__"
+        return routed
     def cancel(self):
         self.frame=None
         self.short=False

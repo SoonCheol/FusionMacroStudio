@@ -12,6 +12,10 @@ export function directBinding(index){
 }
 // Reserved Shift+F24 prefix; next Ctrl+F13..F23 identifies the camera action.
 export const FAST_CAMERA=["__fms_fit__","__fms_orbit_down__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_pan_down__","__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_zoom_in__","__fms_zoom_out__"];
+// Explicit orbit variants are append-only registry IDs; old IDs still use the legacy default.
+export function orbitBase(id){const m=typeof id==='string'&&/^__fms_orbit_(left|right|up|down)(?:_(free|constrained))?__$/.exec(id);return m?'__fms_orbit_'+m[1]+'__':null}
+export function orbitMode(id,fallback='constrained'){return orbitBase(id)?(/_free__$/.test(id)?'free':/_constrained__$/.test(id)?'constrained':fallback):null}
+export function orbitVariant(id,mode){const b=orbitBase(id);return b&&['free','constrained'].includes(mode)?b.slice(0,-2)+'_'+mode+'__':id}
 export const HOLD_MARKERS=['__fms_hold_pan__','__fms_hold_vertical__'];
 // Pair codes: per-knob Shift+F19..F21 prefix, three base-6 Ctrl symbols.
 // Exclude every hold marker from the digit alphabet to avoid simultaneous-key collision.

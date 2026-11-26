@@ -18,7 +18,7 @@ from .updater import Updater
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.4.1"
+VERSION = "0.4.3"
 app = None
 handler = None
 event = None
@@ -162,6 +162,10 @@ def model_up():
     return (0.,0.,1.)
 
 def camera_action(command, amount=1.0):
+    mode_match=re.fullmatch(r"(__fms_orbit_(?:left|right|up|down))_(free|constrained)__",command)
+    orbit_override=mode_match.group(2) if mode_match else None
+    if mode_match:
+        command=mode_match.group(1)+"__"
     amount=max(1.0,min(20.0,float(amount)))
     viewport = app.activeViewport
     if not viewport:
@@ -227,7 +231,7 @@ def camera_action(command, amount=1.0):
         direction = cam.eye.vectorTo(cam.target)
         vertical = command in ("__fms_orbit_up__","__fms_orbit_down__")
         angle = math.radians((7 if command in ("__fms_orbit_left__","__fms_orbit_up__") else -7)*amount)
-        constrained=read_orbit_mode(HOME)=="constrained"
+        constrained=(orbit_override or read_orbit_mode(HOME))=="constrained"
         if constrained:
             world_up=model_up()
             axis_xyz,angle=constrained_step(vector_xyz(direction),vector_xyz(up),world_up,vertical,angle)
@@ -256,6 +260,7 @@ def camera_action(command, amount=1.0):
     viewport.refresh()
 
 CAMERA = {"__fms_fit__","__fms_zoom_in__","__fms_zoom_out__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_orbit_down__","__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_pan_down__"}
+CAMERA.update(f"__fms_orbit_{direction}_{mode}__" for direction in ("left","right","up","down") for mode in ("free","constrained"))
 class Dispatch(adsk.core.CustomEventHandler):
     def __init__(self):
         super().__init__()

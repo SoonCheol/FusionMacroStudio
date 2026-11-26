@@ -2,6 +2,8 @@ const {app,BrowserWindow,protocol,net,ipcMain,dialog,Menu}=require('electron');
 const {autoUpdater}=require('electron-updater');
 const path=require('node:path'),fs=require('node:fs'),{pathToFileURL}=require('node:url'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
 const {storage}=require('./storage.cjs');
+const {readRelease,downloadRelease,compareVersion}=require('./addin-release.cjs');
+const os=require('node:os');
 const execute=promisify(execFile);
 const ROOT=path.join(__dirname,'site'),URL='fms://editor/';
 protocol.registerSchemesAsPrivileged([{scheme:'fms',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
@@ -22,23 +24,54 @@ autoUpdater.on('update-downloaded',info=>sendUpdate({state:'ready',latest:info.v
 autoUpdater.on('error',fail);
 function addinPath(){return path.join(process.resourcesPath,'addin-package','setup.ps1')}
 function bundledAddinVersion(){return JSON.parse(fs.readFileSync(path.join(process.resourcesPath,'addin-package','FusionMacroStudio','FusionMacroStudio.manifest'),'utf8').replace(/^\uFEFF/, '')).version}
-async function ps(args){const exe=path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');return execute(exe,['-NoProfile','-ExecutionPolicy','Bypass','-File',addinPath(),...args],{windowsHide:true,encoding:'utf8',maxBuffer:1024*1024,timeout:1900000})}
+async function ps(args,script=addinPath()){const exe=path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe');return execute(exe,['-NoProfile','-ExecutionPolicy','Bypass','-File',script,...args],{windowsHide:true,encoding:'utf8',maxBuffer:1024*1024,timeout:1900000})}
 async function addinStatus(){const {stdout}=await ps(['-DesktopStatus']);return JSON.parse(stdout.trim().replace(/^\uFEFF/,''))}
+let release=null,addinInfo={state:'idle',current:undefined,latest:null,error:''};
+function updateAddinStatus(s){
+ const current=s.installed||null,latest=release?.version||null;
+ addinInfo={current,latest,state:!latest?'idle':!s.ready?'unavailable':!current||compareVersion(current,latest)<0?'available':'current',error:''};
+ return {...addinInfo};
+}
+async function addinUpdate(action){
+ if(action==='status')return updateAddinStatus(await addinStatus());
+ if(installing||updateInstalling)throw Error('다른 설치 작업이 진행 중입니다.');
+ if(action==='check'){
+  const s=await addinStatus();release=null;updateAddinStatus(s);
+  try{release=await readRelease(net.fetch);return updateAddinStatus(s)}
+  catch(e){return {...addinInfo,state:'error',error:e.message}}
+ }
+ if(action!=='install'||!release)throw Error('먼저 최신 버전을 확인하세요.');
+ return manageAddin(false);
+}
 async function manageAddin(first=false){
- if(installing||updateInstalling)return;
- installing=true;
+ if(installing||updateInstalling)return {...addinInfo};
+ installing=true;let temporary=null;
  try{
-  const s=await addinStatus(),targetVersion=bundledAddinVersion();
-  if(s.installed===targetVersion){if(!first)await dialog.showMessageBox(win,{type:'info',message:'Fusion 애드인이 최신 버전입니다.'});return}
-  if(s.installed&&s.installed.localeCompare(targetVersion,undefined,{numeric:true})>0){if(!first)await dialog.showMessageBox(win,{message:'더 최신 애드인이 설치되어 있습니다.'});return}
-  if(!s.ready){if(!first)await dialog.showMessageBox(win,{type:'info',message:'Fusion 설치 또는 초기 실행 후 애드인을 설치하세요.'});return}
+  const s=await addinStatus(),targetVersion=first?bundledAddinVersion():release.version;
+  if(first&&s.installed)return updateAddinStatus(s);
+  if(s.installed&&compareVersion(s.installed,targetVersion)>=0)return updateAddinStatus(s);
+  if(!s.ready){if(!first)await dialog.showMessageBox(win,{type:'info',message:'Fusion 설치 또는 초기 실행 후 애드인을 설치하세요.'});return updateAddinStatus(s)}
   const res=await dialog.showMessageBox(win,{type:'question',message:s.running?'Fusion이 실행 중입니다. 종료 후 애드인을 설치하시겠습니까?':'Fusion 애드인을 설치하시겠습니까?',detail:s.running?'작업물 저장 확인창에서 저장을 선택하세요.':(s.installed||'미설치')+' → '+targetVersion,buttons:['취소',s.running?'종료 후 설치':'설치'],defaultId:1,cancelId:0});
-  if(res.response!==1)return;
-  const {stdout}=await ps(['-DesktopInstall',...(s.running?['-RequestClose','-RestartFusion']:[])]);
+  if(res.response!==1)return updateAddinStatus(s);
+  let installer=addinPath();
+  if(!first&&targetVersion!==bundledAddinVersion()){
+   temporary=await fs.promises.mkdtemp(path.join(os.tmpdir(),'fms-addin-'));
+   const archive=path.join(temporary,'release.zip'),out=path.join(temporary,'package');
+   await downloadRelease(net.fetch,release,archive);
+   await ps(['-Archive',archive,'-Destination',out,'-ExpectedVersion',targetVersion],path.join(process.resourcesPath,'addin-package','prepare-release.ps1'));
+   installer=path.join(out,'setup.ps1');
+  }
+  const {stdout}=await ps(['-DesktopInstall',...(s.running?['-RequestClose','-RestartFusion']:[])],installer);
   const result=JSON.parse(stdout.trim().split(/\r?\n/).at(-1));
+  const verified=await addinStatus();
+  if(result.version!==targetVersion||verified.installed!==targetVersion)throw Error('애드인 설치 버전 검증 실패');
   await dialog.showMessageBox(win,{type:'info',message:'애드인 '+result.version+' 설치 완료',detail:result.restartError||''});
- }catch(e){await dialog.showMessageBox(win,{type:'error',message:'애드인 설치/확인 실패',detail:String(e.stderr||e.message).slice(-2500)})}
- finally{installing=false}
+  return updateAddinStatus(verified);
+ }catch(e){
+  const error=String(e.stderr||e.message).slice(-2500);
+  await dialog.showMessageBox(win,{type:'error',message:'애드인 설치/확인 실패',detail:error});
+  return {...addinInfo,state:'error',error};
+ }finally{if(temporary)await fs.promises.rm(temporary,{recursive:true,force:true}).catch(()=>{});installing=false}
 }
 async function createWindow(){
  protocol.handle('fms',req=>{
@@ -72,7 +105,7 @@ async function createWindow(){
   }
   return local(route,body);
  });
- ipcMain.handle('fms:addin',e=>{if(!permitted(e))throw Error('Forbidden');return manageAddin()});
+ ipcMain.handle('fms:addin-update',(e,action)=>{if(!permitted(e))throw Error('Forbidden');return addinUpdate(action)});
  ipcMain.handle('fms:update',async(e,action)=>{
   if(!permitted(e))throw Error('Forbidden');
   try{

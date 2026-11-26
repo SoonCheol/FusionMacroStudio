@@ -9,7 +9,7 @@ const url=new URL('./data/command-codes.json',import.meta.url),ids=validateCodes
 test('fixed registry, all 14641 code payloads roundtrip and no legacy modifiers',()=>{
  const seen=new Set();
  for(let i=0;i<CAPACITY;i++){const b=directBinding(i),r=reports(0,1,b)[0];r[0]=250;assert.equal(directIndex(readBinding(r)),i);assert.ok(sameBinding(r,b));assert.ok(b.steps.every(s=>s.mods===1));seen.add(JSON.stringify(b))}
- assert.equal(seen.size,CAPACITY);assert.equal(ids.length,1230);
+ assert.equal(seen.size,CAPACITY);assert.equal(ids.length,1238);
 });
 test('direct profile restore keeps command code independent of slot',()=>{
  const p=blank(),b=directBinding(1);p.layers[2].bindings[24]=b;p.layers[2].fusion[24]={id:ids[1],name:'test'};
@@ -46,3 +46,5 @@ test('independent camera pair roundtrip and restore',()=>{
 test('extended pair preserves arbitrary fixed commands and camera pair remains short',()=>{
  const normal='DrawPolyline',held='__fms_pivot_origin__';assert.ok(ids.includes(normal));const b=pairBinding(1,normal,held,ids);assert.equal(b.steps.length,14);const raw=reports(1,19,b)[0];raw[0]=250;assert.deepEqual(pairInfo(readBinding(raw),ids),{knob:1,normal,held});const p=blank();p.layers[1].bindings[19]=b;p.layers[1].fusion[19]={id:normal,name:normal};assert.deepEqual(profileChanges(p,ids).changes,[{layer:1,slot:19,binding:b}]);assert.equal(pairBinding(1,'__fms_orbit_left__','__fms_pan_up__',ids).steps.length,4);
 });
+
+test('explicit orbit mode variants retain registry identity in direct and paired writes',()=>{for(const direction of ['down','left','right','up'])for(const mode of ['constrained','free']){const id='__fms_orbit_'+direction+'_'+mode+'__',i=ids.indexOf(id);assert.ok(i>=1230);const b=commandBinding(i,ids);assert.equal(directIndex(b,ids),i);const pair=pairBinding(2,id,'__fms_pan_left__',ids);assert.deepEqual(pairInfo(pair,ids),{knob:2,normal:id,held:'__fms_pan_left__'});assert.ok(pair.steps.length<=18)}});
