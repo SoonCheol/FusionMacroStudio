@@ -12,7 +12,31 @@ function log(s){$('log').textContent+=new Date().toLocaleTimeString()+' '+s+'\n'
 const device=new Keypad(log);let connecting=false;
 function updateConnection(){const status=device.verified?'online':connecting?'connecting':'offline';$('connectionIndicator').dataset.state=status;$('connectionLabel').textContent=status==='online'?'연결됨':status==='connecting'?'연결 중':'미연결'}
 function state(s){$('deviceStatus').textContent=s;$('deviceStatus').hidden=!s;updateConnection()}
-function controls(){updateConnection();$('stageBtTest').disabled=busy||!readReady||!viewReady||!device.verified||pending.size>0||selected===null||selected>12||selectedHeld||!!profile.layers[layer].fusion[selected]||bindingName(profile.layers[layer].bindings[selected])!=='미설정';for(const id of ['connect','read','write','open','save','assign','setKey','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':'');$('assign').disabled=busy||!viewReady||!readReady||!codeReady||selected===null||!chosen;$('setKey').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
+function probeEmpty(l,slot){return !l.fusion[slot]&&bindingName(l.bindings[slot])==='미설정'}
+function probeBlock(slot){
+ if(busy)return '장치 통신 중';
+ if(!device.verified)return 'USB 연결 필요';
+ if(!viewReady||!readReady)return '기기에서 읽기 필요';
+ if(!slot)return '현재 레이어에 빈 키가 없습니다. 빈 키를 만들거나 다른 레이어를 선택하세요.';
+ if(!probeEmpty(profile.layers[layer],slot))return '빈 키를 선택하세요.';
+ if([...pending.keys()].some(k=>k!==layer+':'+slot))return '다른 미전송 변경을 먼저 기기에 쓰세요.';
+ return '';
+}
+function probeControls(){
+ const select=$('probeSlot'),previous=Number(select.value),l=profile.layers[layer];
+ const choices=viewReady&&readReady?Array.from({length:12},(_,i)=>i+1).filter(s=>probeEmpty(l,s)):[];
+ const current=choices.includes(previous)?previous:choices.includes(selected)?selected:choices[0];
+ select.replaceChildren();
+ if(!choices.length){const o=document.createElement('option');o.value='';o.textContent='선택 가능한 빈 키 없음';select.append(o)}
+ for(const s of choices){const o=document.createElement('option');o.value=String(s);o.textContent='K'+s;select.append(o)}
+ if(current)select.value=String(current);
+ select.disabled=busy||!choices.length;
+ const reason=probeBlock(current);
+ $('stageBtTest').disabled=!!reason;
+ $('probeStatus').textContent=reason||'레이어 '+(layer+1)+' · K'+current+'에 시험 코드 배정 가능';
+ $('stageBtTest').title=reason||'선택한 빈 키에 시험 코드를 배정합니다.';
+}
+function controls(){updateConnection();probeControls();for(const id of ['connect','read','write','open','save','assign','setKey','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':'');$('assign').disabled=busy||!viewReady||!readReady||!codeReady||selected===null||!chosen;$('setKey').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
 async function run(fn){if(busy)return;busy=true;controls();try{await fn()}catch(e){state(e.message);log(e.message)}finally{busy=false;renderKeys();controls()}}
 function keyName(code){if(code>=104&&code<=115)return 'F'+(code-91);if(code>=58&&code<=69)return 'F'+(code-57);if(code>=4&&code<=29)return String.fromCharCode(code+61).toUpperCase();return ({40:'Enter',41:'Esc',42:'Backspace',43:'Tab',44:'Space',79:'→',80:'←',81:'↓',82:'↑'})[code]||'0x'+Number(code).toString(16)}
 function bindingName(b){if(!b)return '미설정';if(b.type==='media')return '미디어 0x'+b.usage.toString(16);if(b.type==='mouse')return '마우스 '+({1:'클릭',3:'휠',5:'이동'}[b.action]||'동작');if(b.type!=='key')return '기존 HID 설정';if(b.steps.length===1&&!b.steps[0].mods&&!b.steps[0].code)return '미설정';return b.steps.map(s=>[s.mods&1?'Ctrl':'',s.mods&2?'Shift':'',s.mods&4?'Alt':'',s.mods&8?'Win':'',keyName(s.code)].filter(Boolean).join('+')).join(', ')}
@@ -234,7 +258,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.4.10',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.4.11',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;
@@ -346,5 +370,6 @@ async function initLocal(){
  renderKeys();
 }
 
-$('stageBtTest').onclick=()=>{if($('stageBtTest').disabled)return;setPending(selected,probeBinding(1234,$('probeKind').value));renderKeys();state('블루투스 시험 코드 배정 대기 · 기기에 쓰기 필요')};
+$('probeSlot').onchange=probeControls;
+$('stageBtTest').onclick=()=>{const slot=Number($('probeSlot').value),reason=probeBlock(slot);if(reason){$('probeStatus').textContent=reason;return}selected=slot;selectedHeld=false;setPending(slot,probeBinding(1234,$('probeKind').value));renderKeys();state('레이어 '+(layer+1)+' · K'+slot+' 시험 코드 배정 대기 · 기기에 쓰기 필요')};
 setupInputComparison();watchLabels();renderKeys();initLocal();Promise.all([Promise.all(['menu','english','command-codes'].map(n=>fetch('data/'+n+'.json').then(r=>{if(!r.ok)throw Error('카탈로그 로드 실패');return r.json()}))),loadAssets().catch(e=>{log('로컬 자료 저장소: '+e.message);return []})]).then(([[m,en,codes],assets])=>{catalog=m;overlay=en;codeIds=validateCodes(codes);codeMap=new Map(codeIds.map((id,i)=>[id,i]));codeReady=true;for(const item of assets){if(item.id==='commands'&&Array.isArray(item.value))imported=item.value;if(item.id.startsWith('icon:')&&item.value instanceof Blob)icons.set(item.id.slice(5),URL.createObjectURL(item.value))}buildTree()}).catch(e=>$('catalogStatus').textContent=e.message);
