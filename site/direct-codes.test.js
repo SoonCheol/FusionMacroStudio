@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {CAPACITY,validateCodes,directBinding,directIndex,commandBinding,FAST_CAMERA,HOLD_MARKERS} from './direct-codes.js';
+import {CAPACITY,validateCodes,directBinding,directIndex,commandBinding,FAST_CAMERA,HOLD_MARKERS,KNOB_MARKERS,pairBinding,pairInfo} from './direct-codes.js';
 import {reports,readBinding,sameBinding,blank,profileChanges} from './protocol.js';
 const url=new URL('./data/command-codes.json',import.meta.url),ids=validateCodes(JSON.parse(readFileSync(url,'utf8')));
 test('fixed registry, all 14641 code payloads roundtrip and no legacy modifiers',()=>{
  const seen=new Set();
  for(let i=0;i<CAPACITY;i++){const b=directBinding(i),r=reports(0,1,b)[0];r[0]=250;assert.equal(directIndex(readBinding(r)),i);assert.ok(sameBinding(r,b));assert.ok(b.steps.every(s=>s.mods===1));seen.add(JSON.stringify(b))}
- assert.equal(seen.size,CAPACITY);assert.equal(ids.length,1227);
+ assert.equal(seen.size,CAPACITY);assert.equal(ids.length,1230);
 });
 test('direct profile restore keeps command code independent of slot',()=>{
  const p=blank(),b=directBinding(1);p.layers[2].bindings[24]=b;p.layers[2].fusion[24]={id:ids[1],name:'test'};
@@ -37,4 +37,8 @@ print(json.dumps(out))
 
 test('short camera and held markers roundtrip',()=>{
  for(const id of [...FAST_CAMERA,...HOLD_MARKERS]){const i=ids.indexOf(id),b=commandBinding(i,ids),r=reports(0,17,b)[0];r[0]=250;assert.equal(directIndex(readBinding(r),ids),i);assert.ok(sameBinding(r,b));const p=blank();p.layers[0].bindings[17]=b;p.layers[0].fusion[17]={id,name:id};assert.deepEqual(profileChanges(p,ids).changes,[{layer:0,slot:17,binding:b}]);}
+});
+
+test('independent camera pair roundtrip and restore',()=>{
+ for(let k=0;k<3;k++)for(const normal of [...FAST_CAMERA,null])for(const held of [...FAST_CAMERA,null]){const b=pairBinding(k,normal,held),slot=16+3*k,r=reports(0,slot,b)[0];r[0]=250;assert.deepEqual(pairInfo(readBinding(r)),{knob:k,normal,held});const p=blank();p.layers[0].bindings[slot]=b;if(normal)p.layers[0].fusion[slot]={id:normal,name:normal};assert.deepEqual(profileChanges(p,ids).changes,[{layer:0,slot,binding:b}]);}
 });

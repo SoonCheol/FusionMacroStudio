@@ -1,6 +1,6 @@
 // Target-specific subset adapted from Macropad Rebind, MIT; see licenses.
 // No firmware, reset, identity rewrite or LED commands.
-import {directIndex,directBinding} from './direct-codes.js';
+import {directIndex,directBinding,pairInfo,KNOB_MARKERS} from './direct-codes.js';
 export const SLOTS=[1,2,3,4,5,6,7,8,9,10,11,12,16,17,18,19,20,21,22,23,24];
 export const VID=0x514c, PID=0x8842;
 export const packet=bytes=>{if(bytes.length>64)throw Error("HID packet overflow");const out=new Uint8Array(64);out.set(bytes);return out};
@@ -63,9 +63,12 @@ export function profileChanges(profile,codes=[]){
  const changes=[],skipped=[];
  for(let layer=0;layer<3;layer++){const l=profile.layers[layer];for(const slot of SLOTS){
    const f=l.fusion[slot],b=l.bindings[slot];if(!f&&!b)continue;
-   const index=directIndex(b,codes);
+   const pair=pairInfo(b),index=directIndex(b,codes);
+   if(pair&&(slot<16||(slot-16)%3===1||Math.floor((slot-16)/3)!==pair.knob)){skipped.push({layer,slot});continue;}
+   if(pair&&f&&f.id!==pair.normal){skipped.push({layer,slot});continue;}
+   if(index!==null&&KNOB_MARKERS.includes(codes[index])&&slot!==17+3*KNOB_MARKERS.indexOf(codes[index])){skipped.push({layer,slot});continue;}
    if(index!==null&&(!codes[index]||(f&&f.id!==codes[index]))){skipped.push({layer,slot});continue}
-   let binding=index!==null?{type:'key',steps:b.steps.map(s=>({...s})),delay:0}:f?trigger(layer,slot):b;
+   let binding=(pair||index!==null)?{type:'key',steps:b.steps.map(s=>({...s})),delay:0}:f?trigger(layer,slot):b;
    if(!f&&Array.isArray(b._raw)) {
      // Raw read records carry authoritative type/count; reject mismatched addresses.
      const raw=b._raw;

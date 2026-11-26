@@ -1227,6 +1227,9 @@
     "__fms_pivot_camera__",
     "__fms_pivot_point__",
     "__fms_hold_pan__",
-    "__fms_hold_vertical__"
+    "__fms_hold_vertical__",
+    "__fms_knob_hold_1__",
+    "__fms_knob_hold_2__",
+    "__fms_knob_hold_3__"
   ]
 }

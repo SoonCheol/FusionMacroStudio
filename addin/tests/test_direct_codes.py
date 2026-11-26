@@ -55,3 +55,20 @@ class DirectTest(unittest.TestCase):
         self.assertTrue(self.d.down(133,2,12,True))
         self.assertIn(133,self.d.markers)
         self.assertEqual(self.d.up(133,12.1,True),(True,None))
+
+    def test_independent_pair_per_knob(self):
+        self.d=m.DirectInput(tuple(m.FAST_CAMERA))
+        normal=m.FAST_CAMERA.index("__fms_orbit_left__")
+        held=m.FAST_CAMERA.index("__fms_zoom_in__")
+        def pair(knob,t,mods=1):
+            n=normal*12+held
+            self.tap(130+knob,t,2)
+            for i,d in enumerate((n//36,n//6%6,n%6)):
+                result=self.tap(m.PAIR_DIGITS[d],t+.03*(i+1),mods)
+            return result
+        self.assertEqual(pair(0,0),(True,"__fms_orbit_left__"))
+        self.d.down(127,2,.2,True)
+        self.assertEqual(pair(0,.3,3),(True,"__fms_zoom_in__"))
+        self.assertEqual(pair(1,.5,3),(True,"__fms_orbit_left__"))
+        self.d.up(127,.7,True)
+        self.assertEqual(pair(0,.8),(True,"__fms_orbit_left__"))

@@ -49,3 +49,5 @@
 .knob-hold-mode{width:100%;min-width:0;font-size:11px;padding:4px;min-height:31px}
 .knob-action.held-preview{cursor:default}
 .knob-hold-hint{text-align:center;font-size:10px;line-height:1.25}
+
+.knob-hold-status{min-height:31px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;font-size:10px;color:var(--muted);text-align:center}

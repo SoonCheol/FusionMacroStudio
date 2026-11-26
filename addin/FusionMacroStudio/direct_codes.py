@@ -4,7 +4,8 @@ from pathlib import Path
 
 CAPACITY = 11**4
 FAST_CAMERA = ["__fms_fit__","__fms_orbit_down__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_pan_down__","__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_zoom_in__","__fms_zoom_out__"]
-HOLD_MARKERS = {133: "__fms_hold_pan__", 134: "__fms_hold_vertical__"}
+HOLD_MARKERS = {133: "__fms_hold_pan__", 134: "__fms_hold_vertical__", **{127+i: f"__fms_knob_hold_{i+1}__" for i in range(3)}}
+PAIR_DIGITS = (124,125,126,130,131,132)
 PAN = {f"__fms_orbit_{d}__": f"__fms_pan_{d}__" for d in ("left","right","up","down")}
 VERTICAL = {"__fms_orbit_left__":"__fms_orbit_up__", "__fms_orbit_right__":"__fms_orbit_down__",
             "__fms_pan_left__":"__fms_pan_up__", "__fms_pan_right__":"__fms_pan_down__"}
@@ -27,6 +28,7 @@ class DirectInput:
         self.frame=None
         self.deadline=0
         self.short=False
+        self.pair=None
         self.markers={}
         self.marker_edges=set()
         self.marker_deadline=0
@@ -42,6 +44,7 @@ class DirectInput:
     def cancel(self):
         self.frame=None
         self.short=False
+        self.pair=None
     def tick(self,now,active):
         if not active:
             self.reset()
@@ -61,17 +64,19 @@ class DirectInput:
             return True
         if vk in self.held:
             return True
+        pair_prefix=active and mods==2 and 130<=vk<=132
         short_prefix=active and mods==2 and vk==135
-        if not active or (not short_prefix and mods!=1 and not (self.markers and mods==3)) or not 124<=vk<=135:
+        if not active or (not short_prefix and not pair_prefix and mods!=1 and not (self.markers and mods==3)) or not 124<=vk<=135:
             self.cancel()
             return False
         overlap=bool(self.held)
         self.held.add(vk)
         if overlap:
             self.cancel()
-        elif short_prefix or vk==135:
+        elif pair_prefix or short_prefix or vk==135:
             self.frame=[]
             self.short=short_prefix
+            self.pair=vk-130 if pair_prefix else None
         elif self.frame is not None:
             self.frame.append(vk-124)
         self.deadline=now+self.timeout
@@ -89,6 +94,21 @@ class DirectInput:
         if self.frame is None or self.held:
             return True,None
         self.deadline=now+self.timeout
+        if self.pair is not None:
+            if len(self.frame)<3:
+                return True,None
+            knob=self.pair
+            digits=[d+124 for d in self.frame]
+            self.cancel()
+            if any(d not in PAIR_DIGITS for d in digits):
+                return True,None
+            n=0
+            for d in digits:n=n*6+PAIR_DIGITS.index(d)
+            if n>=144:return True,None
+            held=127+knob in self.markers
+            if held:self.marker_deadline=now+10
+            i=n%12 if held else n//12
+            return True,FAST_CAMERA[i] if i<len(FAST_CAMERA) and FAST_CAMERA[i] in self.ids else None
         if self.short and len(self.frame)==1:
             i=self.frame[0]
             self.cancel()

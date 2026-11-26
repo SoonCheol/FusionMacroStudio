@@ -1,4 +1,4 @@
-Fusion Macro Studio Add-in Setup 0.3.17 (Windows preview)
+Fusion Macro Studio Add-in Setup 0.3.18 (Windows preview)
 1. Extract the entire ZIP. Close Fusion and run Setup.cmd.
 2. Install/update the independent add-in. Start Fusion.
 3. In the web editor, save fusion-macro-profile.json after writing the keypad.
@@ -14,3 +14,5 @@ Automatic sync: start Fusion, open http://127.0.0.1:18472/ in Chrome or Edge. Th
 Direct code mode (v0.3.16): use public Pages for new assignments. The fixed registry ships in the add-in; no profile import is needed for those assignments. Local editor remains legacy compatibility mode. Direct sequence and long-press behavior require hardware validation. Existing mappings are not automatically migrated.
 
 0.3.17: automatic orbit pivot and acceleration apply to existing codes. Reassign camera actions to use short codes. Hold modes require real overlapping press/rotation events; assign a hold marker to a knob press and short orbit/pan codes to turns. The hold marker has no tap action. No simultaneous knob identity inference.
+
+0.3.18: assign independent camera commands in the Normal/Held knob views. Both commands reside in one rotation record. Hold marker is automatically assigned per knob. Real overlapping hardware signals are still unverified. Existing codes remain supported.
