@@ -208,6 +208,16 @@ try{
  await page.keyboard.press('A');
  await page.locator('#captureStop').click();
  assert.ok((await page.locator('#captureResult').innerText()).includes('입력 코드 및 순서 일치'));
+ await page.goto(url);
+ await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
+ await page.locator('#read').click();await page.locator('#deviceStatus').filter({hasText:'63/63'}).waitFor();
+ await page.locator('#keys .key').first().click();
+ await page.locator('.left>.advanced>summary').click();
+ await page.locator('#inputComparison>summary').click();
+ assert.equal(await page.locator('#stageBtTest').isEnabled(),true);
+ await page.locator('#stageBtTest').click();
+ assert.ok((await page.locator('#pendingCount').innerText()).includes('1개'));
+ assert.equal(await page.locator('#stageBtTest').isDisabled(),true);
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
  await verifyLabels('Icon gallery');
  await page.screenshot({path:'browser-preview/gallery.png'});

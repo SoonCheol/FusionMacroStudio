@@ -1,6 +1,6 @@
 {
   "name": "fusion-macro-studio",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "description": "Fusion Macro Studio Windows editor",
   "author": "Fusion Macro Studio",
   "main": "main.cjs",
