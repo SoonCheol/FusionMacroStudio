@@ -43,6 +43,7 @@ jobs:
           Copy-Item -LiteralPath addin/setup.ps1 -Destination desktop/addin-package
           Copy-Item -LiteralPath addin/FusionMacroStudio -Destination desktop/addin-package/FusionMacroStudio -Recurse
           Copy-Item -LiteralPath site -Destination desktop/addin-package/FusionMacroStudio/web -Recurse
+          & ./desktop/create-app-icon.ps1 -Source ./desktop/assets/app-icon.png -OutputDirectory ./desktop/build
           Set-Location desktop
           npm install --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }

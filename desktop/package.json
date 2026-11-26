@@ -1,6 +1,6 @@
 {
   "name": "fusion-macro-studio",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Fusion Macro Studio Windows editor",
   "author": "Fusion Macro Studio",
   "main": "main.cjs",
@@ -24,7 +24,8 @@
       "preload.cjs",
       "storage.cjs",
       "site/**",
-      "package.json"
+      "package.json",
+      "assets/app-icon.png"
     ],
     "extraResources": [
       {
@@ -34,7 +35,8 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "icon": "build/app-icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -42,7 +44,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "installerIcon": "build/app-icon.ico",
+      "uninstallerIcon": "build/app-icon.ico"
     },
     "publish": [
       {

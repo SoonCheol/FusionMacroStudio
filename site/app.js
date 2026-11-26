@@ -177,7 +177,7 @@ if(localMode){
   const api=window.fmsDesktop;
   let info={state:'idle'};
   function safe(){if(busy||pending.size||syncDirty){$('desktopMessage').textContent='미전송 변경을 먼저 기기에 쓰세요.';return false}return true}
-  function display(d){info=d;$('desktopVersion').textContent='현재 '+d.current+' · 최신 '+(d.latest||'확인 전');$('desktopCheck').disabled=['checking','downloading','ready'].includes(d.state);$('desktopInstall').disabled=!['available','ready'].includes(d.state);$('desktopInstall').textContent=d.state==='ready'?'설치':'업데이트';$('desktopProgress').hidden=!['downloading','ready'].includes(d.state);$('desktopProgress').value=d.progress||0;$('desktopMessage').textContent=({checking:'확인 중',available:'새 버전 사용 가능',current:'최신 버전',downloading:'다운로드 '+d.progress+'%',ready:'다운로드 완료',error:'업데이트 실패: '+d.error})[d.state]||''}
+  function display(d){info=d;$('appTitleVersion').textContent=d.current;$('desktopVersion').textContent='현재 '+d.current+' · 최신 '+(d.latest||'확인 전');$('desktopCheck').disabled=['checking','downloading','ready'].includes(d.state);$('desktopInstall').disabled=!['available','ready'].includes(d.state);$('desktopInstall').textContent=d.state==='ready'?'설치':'업데이트';$('desktopProgress').hidden=!['downloading','ready'].includes(d.state);$('desktopProgress').value=d.progress||0;$('desktopMessage').textContent=({checking:'확인 중',available:'새 버전 사용 가능',current:'최신 버전',downloading:'다운로드 '+d.progress+'%',ready:'다운로드 완료',error:'업데이트 실패: '+d.error})[d.state]||''}
   async function action(a){try{display(await api.update(a))}catch(e){$('desktopMessage').textContent=e.message}}
   api.onUpdate(display);
   $('desktopCheck').onclick=()=>action('check');
