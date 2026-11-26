@@ -23,6 +23,12 @@ export function fitLabels(){
       return [el,fittedSize(base,Math.max(0,width-1),longest),base];
     });
     for(const [el,size,base] of plans)if(size<base)el.style.fontSize=size+'px';
+    // CJK fonts may quantize glyph widths after fractional font changes. Check the actual result.
+    for(let pass=0;pass<8;pass++){
+      const corrections=[];
+      for(const el of labels){const s=getComputedStyle(el),base=parseFloat(s.fontSize),width=el.clientWidth-parseFloat(s.paddingLeft||0)-parseFloat(s.paddingRight||0);const longest=Math.max(0,...[...el.children].map(w=>w.getBoundingClientRect().width));if(width>0&&longest>width-.5&&base>.1)corrections.push([el,Math.max(.1,Math.min(base-.5,fittedSize(base,width-1,longest)))])}
+      if(!corrections.length)break;for(const [el,size] of corrections)el.style.fontSize=size+'px';
+    }
   });
 }
 export function watchLabels(root=document.body){
