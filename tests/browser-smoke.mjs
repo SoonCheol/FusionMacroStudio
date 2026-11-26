@@ -49,7 +49,9 @@ async function verifySwitchGeometry(stage){
   const bad=[],rect=e=>e.getBoundingClientRect();
   for(const group of document.querySelectorAll('.knob-switches')){
    const buttons=[...group.querySelectorAll('.knob-switch')],a=rect(buttons[0]),b=rect(buttons[1]);
-   if(b.left-a.right<6||Math.abs(a.top-b.top)>1)bad.push('switch columns overlap or wrap');
+   if(!buttons[0].classList.contains('orbit-switch')||b.top<a.bottom-.5||Math.abs(a.left-b.left)>1)bad.push('orbit row must precede normal/held row');
+   const face=group.parentElement.querySelector('.knob-face'),label=rect(face.querySelector('.knob-number')),dial=rect(face.querySelector('.dial'));
+   if(label.left>=dial.left||Math.abs(label.top-dial.top)>1||a.top<dial.bottom)bad.push('knob number or orbit row mispositioned');
    for(const button of buttons){
     const r=rect(button),parts=[...button.children].map(rect).filter(p=>p.width&&p.height);
     for(const p of parts)if(p.left<r.left-.5||p.right>r.right+.5||p.top<r.top-.5||p.bottom>r.bottom+.5)bad.push('switch content overflow '+button.getAttribute('aria-label'));
