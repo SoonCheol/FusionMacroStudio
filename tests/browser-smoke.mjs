@@ -252,6 +252,23 @@ try{
  assert.equal(await page.evaluate(()=>window.fakeRecord(1,1)[9]),1);
  assert.deepEqual(await page.evaluate(()=>window.fakeRecord(1,1).slice(10,12)),[0,0]);
  assert.equal(await page.evaluate(()=>localStorage.getItem('fusion-macro-studio.bt-wizard-recovery-v1')),null);
+ await page.goto(url+'bluetooth-test.html?phase=2');
+ await page.locator('#wizardNext').click();
+ await page.locator('#wizardCapture').waitFor();
+ assert.equal(await page.evaluate(()=>window.fakeRecord(1,1)[9]),16);
+ const emitAlphabet=()=>page.evaluate(()=>{
+  const area=document.getElementById('wizardCapture');
+  for(const code of [...Array.from({length:6},(_,i)=>'F'+(i+1)),...Array.from({length:10},(_,i)=>'Digit'+i)])for(const type of ['keydown','keyup'])area.dispatchEvent(new KeyboardEvent(type,{code,key:code,ctrlKey:true,shiftKey:true,altKey:true,bubbles:true,cancelable:true}));
+ });
+ await emitAlphabet();
+ await page.locator('#bluetoothWizard[data-stage="switch"]').waitFor();
+ await page.evaluate(()=>window.fakeDisconnect());
+ await page.locator('#bluetoothWizard[data-stage="bt"]').waitFor();
+ await emitAlphabet();
+ await page.locator('#wizardNext').filter({hasText:'USB 연결 및 복원'}).waitFor();
+ assert.match(await page.locator('#wizardResult').innerText(),/공통 명령 코드용 전체 키 수신 정상/);
+ await page.locator('#wizardNext').click();
+ await page.locator('#wizardMessage').filter({hasText:'원래 빈 상태로 복원'}).waitFor();
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
  await verifyLabels('Icon gallery');
  await page.screenshot({path:'browser-preview/gallery.png'});
