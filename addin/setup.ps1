@@ -5,7 +5,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.14'
+$packageVersion = '0.3.15'
 $required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
 function Read-Manifest([string]$path) {

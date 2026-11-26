@@ -96,3 +96,47 @@ def execute_definition(definitions, command):
     if not definition or not definition.isValid:
         return "Unavailable command"
     return "Command executed" if definition.execute() else "Command execution rejected"
+
+
+class KnobTrace:
+    """Opt-in, temporary observation of mapped knob inputs only."""
+    def __init__(self):
+        import threading
+        self.lock = threading.RLock()
+        self.until = 0
+        self.started = 0
+        self.events = []
+        self.held = {}
+    def start(self):
+        import time
+        with self.lock:
+            self.started = time.monotonic()
+            self.until = self.started + 30
+            self.events = []
+            self.held = {}
+            return self.snapshot()
+    def snapshot(self):
+        import time
+        with self.lock:
+            return {"active": time.monotonic() < self.until, "events": list(self.events)}
+    def observe(self, vk, mods, down, active, mapping, now):
+        with self.lock:
+            if now >= self.until or not active:
+                self.held.clear()
+                return
+            if down:
+                if vk in self.held or (mods,vk) not in mapping:
+                    return
+                slot_info = next(((l,s) for l in range(3) for s in range(16,25) if trigger(l,s)==(mods,vk)), None)
+                if slot_info is None:
+                    return
+                self.held[vk] = slot_info
+            else:
+                slot_info = self.held.pop(vk, None)
+                if slot_info is None:
+                    return
+            if len(self.events) < 240:
+                l,s = slot_info
+                self.events.append({"ms": round((now-self.started)*1000), "layer": l+1,
+                    "knob": (s-16)//3+1, "action": ("left","press","right")[(s-16)%3],
+                    "edge": "down" if down else "up"})

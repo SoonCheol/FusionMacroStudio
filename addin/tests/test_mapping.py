@@ -55,6 +55,19 @@ class Test(unittest.TestCase):
         p.cancel()
         self.assertEqual(p.up(124,5.1,True),(True,None))
         self.assertEqual(p.up(125,6,True),(False,None))
+    def test_knob_trace(self):
+        t=m.KnobTrace()
+        t.start()
+        now=t.started
+        press=m.trigger(0,17)
+        left=m.trigger(0,16)
+        mapping={press:("press",False),left:("left",False),m.trigger(0,1):("key",True)}
+        for code,down,elapsed in [(press,True,0),(left,True,.1),(left,False,.2),(press,False,.3),(m.trigger(0,1),True,.4)]:
+            t.observe(code[1],code[0],down,True,mapping,now+elapsed)
+        self.assertEqual([(e["action"],e["edge"]) for e in t.snapshot()["events"]],
+                         [("press","down"),("left","down"),("left","up"),("press","up")])
+        t.observe(left[1],left[0],True,True,mapping,now+31)
+        self.assertEqual(len(t.snapshot()["events"]),4)
     def test_zoom_extents(self):
         self.assertEqual(m.zoom_extents(20,10,.85),(17,8.5))
         w,h=m.zoom_extents(2e-6,1e-6,.85)

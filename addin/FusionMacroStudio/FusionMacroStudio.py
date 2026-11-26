@@ -15,7 +15,7 @@ from .local_editor import start_editor, stop_editor, revision
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.14"
+VERSION = "0.3.15"
 app = None
 handler = None
 event = None
@@ -111,6 +111,36 @@ def camera_action(command):
         else:
             # Compatibility fallback for pre-October 2023 Fusion versions.
             cam.viewExtents = max(0.000001,cam.viewExtents*factor)
+    elif command in ("__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_pan_down__"):
+        eye, target = cam.eye, cam.target
+        forward = eye.vectorTo(target)
+        distance = forward.length
+        if not math.isfinite(distance) or distance <= 0:
+            raise RuntimeError("Invalid pan distance")
+        right = forward.crossProduct(cam.upVector)
+        if not right.normalize():
+            raise RuntimeError("Invalid pan axis")
+        vertical = right.crossProduct(forward)
+        if not vertical.normalize():
+            raise RuntimeError("Invalid vertical pan axis")
+        width = height = distance
+        if hasattr(cam, "getExtents"):
+            ok, w, h = cam.getExtents()
+            if ok and all(math.isfinite(v) and v > 0 for v in (w,h)):
+                width, height = w, h
+        else:
+            extents = cam.viewExtents
+            if math.isfinite(extents) and extents > 0:
+                width = height = extents
+        horizontal = command in ("__fms_pan_left__","__fms_pan_right__")
+        axis = right if horizontal else vertical
+        # Translate camera opposite to the desired apparent model movement.
+        sign = 1 if command in ("__fms_pan_left__","__fms_pan_down__") else -1
+        axis.scaleBy(sign * 0.05 * (width if horizontal else height))
+        eye.translateBy(axis)
+        target.translateBy(axis)
+        cam.eye = eye
+        cam.target = target
     else:
         up = cam.upVector
         if command in ("__fms_orbit_up__","__fms_orbit_down__"):
@@ -132,7 +162,7 @@ def camera_action(command):
     viewport.camera = cam
     viewport.refresh()
 
-CAMERA = {"__fms_fit__","__fms_zoom_in__","__fms_zoom_out__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_orbit_down__"}
+CAMERA = {"__fms_fit__","__fms_zoom_in__","__fms_zoom_out__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_orbit_down__","__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_pan_down__"}
 class Dispatch(adsk.core.CustomEventHandler):
     def __init__(self):
         super().__init__()
@@ -233,7 +263,7 @@ def run(context):
         hook=Hook(enqueue)
         hook.start()
         try:
-            editor_server, editor_thread = start_editor(HOME, Path(__file__).parent / 'web')
+            editor_server, editor_thread = start_editor(HOME, Path(__file__).parent / 'web', trace=hook.trace)
             log('Local editor: http://127.0.0.1:18472/')
         except Exception:
             log('Local editor unavailable: ' + traceback.format_exc())

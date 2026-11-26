@@ -3,7 +3,7 @@ import {putAsset,loadAssets} from './assets.js';
 import {iconUrl,iconKind,referenceIcons} from './command-icons.js';
 import {setWordLabel,fitLabels,watchLabels} from './word-labels.js';
 const $=id=>document.getElementById(id), store='fusion-macro-studio.v1';let profile=blank(),layer=0,selected=null,chosen=null,language='ko',area='',panel='',commands=[],tree=[],overlay=null,orientation='normal',pending=new Map(),busy=false,readReady=false;const localMode=location.origin==='http://127.0.0.1:18472';let syncDirty=false,revision='',localReady=!localMode;const icons=new Map();let catalog;let imported=[],allMode=false,visibleLimit=400;
-const cameraCommands=[['fit','전체 보기','Fit view'],['zoom_in','확대','Zoom in'],['zoom_out','축소','Zoom out'],['orbit_left','왼쪽 오비트','Orbit left'],['orbit_right','오른쪽 오비트','Orbit right'],['orbit_up','위 오비트','Orbit up'],['orbit_down','아래 오비트','Orbit down']].map(([id,name,en])=>({id:'__fms_'+id+'__',name,en,description:'Fusion Macro Studio camera action'}));let cameraOnly=false;
+const cameraCommands=[['fit','전체 보기','Fit view'],['zoom_in','확대','Zoom in'],['zoom_out','축소','Zoom out'],['orbit_left','왼쪽 오비트','Orbit left'],['orbit_right','오른쪽 오비트','Orbit right'],['orbit_up','위 오비트','Orbit up'],['orbit_down','아래 오비트','Orbit down'],['pan_left','왼쪽 팬','Pan left'],['pan_right','오른쪽 팬','Pan right'],['pan_up','위쪽 팬','Pan up'],['pan_down','아래쪽 팬','Pan down']].map(([id,name,en])=>({id:'__fms_'+id+'__',name,en,description:'Fusion Macro Studio camera action'}));let cameraOnly=false;
 try{let p=JSON.parse(localStorage.getItem(store)||'null');if(p)profile=validProfile(p);for(const c of JSON.parse(localStorage.getItem(store+'.pending')||'[]')){try{reports(c.layer,c.slot,c.binding);if(JSON.stringify(profile.layers[c.layer].bindings[c.slot])===JSON.stringify(c.binding))pending.set(c.layer+':'+c.slot,c)}catch{}}syncDirty=localMode&&localStorage.getItem(store+'.syncDirty')==='1';revision=localStorage.getItem(store+'.revision')||'';orientation=localStorage.getItem(store+'.orientation')||'normal'}catch{}
 function persist(){try{localStorage.setItem(store,JSON.stringify(profile));localStorage.setItem(store+'.pending',JSON.stringify([...pending.values()]));if(localMode){localStorage.setItem(store+'.syncDirty',syncDirty?'1':'0');localStorage.setItem(store+'.revision',revision)}}catch(e){log('브라우저 저장 실패: '+e.message)}}
 function log(s){$('log').textContent+=new Date().toLocaleTimeString()+' '+s+'\n';$('log').scrollTop=$('log').scrollHeight}
@@ -67,6 +67,24 @@ async function syncProfile(summary){
   }
   throw Error('애드인 반영 확인 시간 초과');
  }catch(e){syncDirty=true;persist();state(summary+' · Fusion 반영 실패: '+e.message+' · 쓰기로 재시도');log(e.message)}
+}
+if(localMode){
+ $('knobTrace').hidden=false;
+ $('startTrace').onclick=async()=>{
+  const button=$('startTrace'),out=$('traceResult');button.disabled=true;
+  try{
+   await localApi('knob-trace',{start:true});
+   out.textContent='Fusion으로 전환하여 노브를 누른 채 돌려 주세요.';
+   for(let i=0;i<35;i++){
+    await new Promise(r=>setTimeout(r,1000));
+    const data=await localApi('knob-trace');
+    const labels={left:'좌회전',right:'우회전',press:'누르기',down:'눌림',up:'떼기'};
+    out.textContent=(data.active?'진단 중':'진단 종료')+' · '+data.events.length+'개 이벤트\n'+data.events.map(e=>e.ms+'ms · 레이어 '+e.layer+' · 노브 '+e.knob+' · '+labels[e.action]+' · '+labels[e.edge]).join('\n');
+    if(!data.active)break;
+   }
+  }catch(e){out.textContent='진단 실패: '+e.message}
+  finally{button.disabled=false}
+ };
 }
 async function initLocal(){
  if(!localMode)return;

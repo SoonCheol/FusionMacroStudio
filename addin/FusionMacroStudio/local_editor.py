@@ -33,7 +33,7 @@ def read_profile(path):
         raise ValueError("Profile too large")
     return path.read_bytes()
 
-def start_editor(home, web, port=PORT):
+def start_editor(home, web, port=PORT, trace=None):
     home, web = Path(home), Path(web)
     if not (web / "index.html").is_file():
         raise FileNotFoundError("Local editor assets missing")
@@ -89,6 +89,8 @@ def start_editor(home, web, port=PORT):
                     with lock:
                         raw = read_profile(target)
                     self.reply(200, {"profile": json.loads(raw.decode("utf-8-sig")) if raw is not None else None, "revision": revision(raw)})
+                elif path == "/api/knob-trace" and trace is not None:
+                    self.reply(200, trace.snapshot())
                 elif path == "/api/status":
                     file = home / "status.json"
                     self.reply(200, json.loads(file.read_text(encoding="utf-8")) if file.exists() else {})
@@ -97,7 +99,8 @@ def start_editor(home, web, port=PORT):
             except (ValueError, OSError) as exc:
                 self.reply(500, {"error": str(exc)})
         def do_POST(self):
-            if urlsplit(self.path).path != "/api/profile" or not self.permitted(True, True):
+            path = urlsplit(self.path).path
+            if path not in ("/api/profile", "/api/knob-trace") or not self.permitted(True, True):
                 self.send_error(403)
                 return
             try:
@@ -108,6 +111,11 @@ def start_editor(home, web, port=PORT):
                     raise ValueError("Invalid profile size")
                 self.connection.settimeout(5)
                 request = json.loads(self.rfile.read(length))
+                if path == "/api/knob-trace":
+                    if trace is None or request != {"start": True}:
+                        raise ValueError("Invalid trace request")
+                    self.reply(200, trace.start())
+                    return
                 profile = request["profile"]
                 count = len(load_mapping(profile))
                 raw = json.dumps(profile, ensure_ascii=False).encode("utf-8")

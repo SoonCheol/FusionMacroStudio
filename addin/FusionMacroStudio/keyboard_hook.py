@@ -4,7 +4,7 @@ from ctypes import wintypes as w
 import os
 import threading
 import time
-from .mapping import PressState
+from .mapping import PressState, KnobTrace
 
 U = c.WinDLL("user32", use_last_error=True)
 K = c.WinDLL("kernel32", use_last_error=True)
@@ -43,6 +43,7 @@ class Hook:
         self.generation = 0
         self.dispatch = dispatch
         self.press = PressState()
+        self.trace = KnobTrace()
         self.lock = threading.RLock()
         self.thread = None
         self.tid = 0
@@ -70,10 +71,13 @@ class Hook:
                             self.press.cancel()
                         now = time.monotonic()
                         if msg in (0x100,0x104):
-                            action = self.mapping.get((modifiers(),vk)) if active else None
+                            mods = modifiers() if active else 0
+                            self.trace.observe(vk,mods,True,active,self.mapping,now)
+                            action = self.mapping.get((mods,vk)) if active else None
                             if self.press.down(vk,action,now):
                                 return 1
                         elif msg in (0x101,0x105):
+                            self.trace.observe(vk,0,False,active,self.mapping,now)
                             consume, cmd = self.press.up(vk,now,active)
                             if cmd:
                                 self.dispatch(cmd,self.generation)
