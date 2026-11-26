@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+*.log
+__pycache__/
+*.pyc
+.env
+.env.*
+keypad-profile*.json
+profiles/
