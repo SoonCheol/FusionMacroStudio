@@ -7,7 +7,7 @@ const page=await browser.newPage({viewport:{width:1920,height:1080},locale:'ko-K
 await page.addInitScript(()=>{
  const slots=[...Array.from({length:12},(_,i)=>i+1),...Array.from({length:9},(_,i)=>i+16)];
  const r={reportId:3,items:[{reportSize:8,reportCount:64}]};
- const listeners=new Set(),disconnect=new Set(),stored=new Map();
+ const listeners=new Set(),disconnect=new Set(),reconnect=new Set(),stored=new Map();
  const device={vendorId:0x514c,productId:0x8842,opened:false,collections:[{usagePage:0xff00,usage:1,inputReports:[r],outputReports:[r]}],
   async open(){this.opened=true},async close(){this.opened=false},
   addEventListener(t,fn){listeners.add(fn)},removeEventListener(t,fn){listeners.delete(fn)},
@@ -17,8 +17,9 @@ await page.addInitScript(()=>{
    if(bytes[0]===254){const row=Array.from(bytes);row[0]=250;stored.set(bytes[2]+':'+bytes[1],row)}
    if(bytes[0]===250)for(const slot of slots)emit(stored.get(bytes[3]+':'+slot)||[250,slot,bytes[3],1,0,0,0,0,0,1,0,bytes[3]===1&&slot===19?104:0]);
   }};
- Object.defineProperty(navigator,'hid',{configurable:true,value:{requestDevice:async()=>[device],addEventListener(t,fn){disconnect.add(fn)}}});
- window.fakeDisconnect=()=>{for(const fn of disconnect)fn({device})};
+ Object.defineProperty(navigator,'hid',{configurable:true,value:{requestDevice:async()=>[device],addEventListener(t,fn){if(t==='disconnect')disconnect.add(fn);else if(t==='connect')reconnect.add(fn)}}});
+ window.fakeDisconnect=()=>{device.opened=false;for(const fn of disconnect)fn({device})};
+ window.fakeReconnect=()=>{for(const fn of reconnect)fn({device})};
  window.fakeRecord=(layer,slot)=>stored.get(layer+':'+slot);
  const profile={format:'fusion-macro-studio-v1',knobBase:16,layers:Array.from({length:3},()=>({fusion:{},bindings:{}}))};
  profile.layers[0].fusion[1]={id:'DrawPolyline',name:'선'};
