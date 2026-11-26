@@ -215,7 +215,9 @@ try{
  await page.locator('.left>.advanced>summary').click();
  await page.locator('#inputComparison>summary').click();
  assert.equal(await page.locator('#stageBtTest').isEnabled(),true);
+ await page.locator('#probeKind').selectOption('extended');
  await page.locator('#stageBtTest').click();
+ assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1.pending'))[0].binding.steps),Array.from({length:12},(_,i)=>({mods:1,code:104+i})));
  assert.ok((await page.locator('#pendingCount').innerText()).includes('1개'));
  assert.equal(await page.locator('#stageBtTest').isDisabled(),true);
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();

@@ -234,7 +234,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.4.9',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.4.10',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;
@@ -346,5 +346,5 @@ async function initLocal(){
  renderKeys();
 }
 
-$('stageBtTest').onclick=()=>{if($('stageBtTest').disabled)return;setPending(selected,probeBinding());renderKeys();state('블루투스 시험 코드 배정 대기 · 기기에 쓰기 필요')};
+$('stageBtTest').onclick=()=>{if($('stageBtTest').disabled)return;setPending(selected,probeBinding(1234,$('probeKind').value));renderKeys();state('블루투스 시험 코드 배정 대기 · 기기에 쓰기 필요')};
 setupInputComparison();watchLabels();renderKeys();initLocal();Promise.all([Promise.all(['menu','english','command-codes'].map(n=>fetch('data/'+n+'.json').then(r=>{if(!r.ok)throw Error('카탈로그 로드 실패');return r.json()}))),loadAssets().catch(e=>{log('로컬 자료 저장소: '+e.message);return []})]).then(([[m,en,codes],assets])=>{catalog=m;overlay=en;codeIds=validateCodes(codes);codeMap=new Map(codeIds.map((id,i)=>[id,i]));codeReady=true;for(const item of assets){if(item.id==='commands'&&Array.isArray(item.value))imported=item.value;if(item.id.startsWith('icon:')&&item.value instanceof Blob)icons.set(item.id.slice(5),URL.createObjectURL(item.value))}buildTree()}).catch(e=>$('catalogStatus').textContent=e.message);
