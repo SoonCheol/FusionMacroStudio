@@ -114,7 +114,7 @@ def start_editor(home, web, port=PORT, trace=None, updater=None):
                 self.connection.settimeout(5)
                 request = json.loads(self.rfile.read(length))
                 if path == "/api/update":
-                    if updater is None or request not in ({"action":"check"},{"action":"install"}):
+                    if updater is None or request not in ({"action":"check"},{"action":"download"},{"action":"install"}):
                         raise ValueError("Invalid update request")
                     self.reply(200, updater.request(request["action"]))
                     return

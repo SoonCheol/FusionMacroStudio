@@ -18,7 +18,7 @@ from .updater import Updater
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.21"
+VERSION = "0.3.22"
 app = None
 handler = None
 event = None

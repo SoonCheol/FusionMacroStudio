@@ -161,29 +161,64 @@ async function syncProfile(summary){
 if(localMode){
  $('localUpdateLink').hidden=true;
  $('updateBar').hidden=false;
- let updatePolling=false;
+ let updatePolling=false,updateState='idle',updateData=null;
  function showUpdate(data){
+  updateData=data;updateState=data.state;
   $('updateVersion').textContent='현재 '+data.current+' · 최신 '+(data.latest||'확인 전');
-  const waiting=['checking','downloading','scheduled'].includes(data.state);
+  const waiting=['checking','downloading','preparing','scheduled'].includes(data.state);
   $('checkUpdate').disabled=waiting;
-  $('installUpdate').disabled=data.state!=='available';
-  const messages={idle:'',checking:'최신 버전 확인 중',current:'최신 버전 사용 중',available:'새 버전 사용 가능',downloading:'다운로드 및 검증 중',scheduled:'설치 준비 완료 · Fusion을 저장하고 종료하세요. 설치 완료 창이 나타나면 다시 실행하세요.',error:'업데이트 실패: '+data.error};
+  $('installUpdate').disabled=!['available','ready'].includes(data.state);
+  $('installUpdate').textContent=data.state==='ready'?'설치':'업데이트';
+  const progressVisible=['downloading','ready','preparing','scheduled'].includes(data.state);
+  const percent=Math.max(0,Math.min(100,Number(data.progress)||0));
+  $('updateProgress').hidden=!progressVisible;$('updateProgress').value=percent;
+  $('updatePercent').hidden=!progressVisible;$('updatePercent').textContent=percent+'%';
+  const messages={idle:'',checking:'최신 버전 확인 중',current:'최신 버전 사용 중',available:'새 버전 사용 가능',downloading:'다운로드 및 검증 중',ready:'다운로드 완료 · 설치 가능',preparing:'설치 준비 중',scheduled:'Fusion 종료 및 재실행 대기 · 저장 확인창을 확인하세요.',error:'업데이트 실패: '+data.error};
   $('updateMessage').textContent=messages[data.state]||'';
-  if(data.state==='current'&&data.last_result?.state==='installed')$('updateMessage').textContent='업데이트 적용 완료 · '+data.current;
-  return waiting&&data.state!=='scheduled';
+  if(data.state==='current'&&['installed','restart-requested'].includes(data.last_result?.state)&&data.last_result.version===data.current)$('updateMessage').textContent='업데이트 적용 완료 · '+data.current;
+  return waiting;
+ }
+ function updateSafe(){
+  if(busy||pending.size||syncDirty){$('updateMessage').textContent='먼저 편집 내용을 쓰고 작업을 완료하세요.';return false;}
+  return true;
+ }
+ function confirmInstall(){
+  if(!updateSafe()||updateState!=='ready')return;
+  $('updateConfirmText').textContent='Fusion Macro Studio '+updateData.latest+' 다운로드 완료. 지금 설치하시겠습니까?';
+  $('updateConfirm').showModal();
  }
  async function updateAction(action){
   if(updatePolling)return;
   updatePolling=true;$('checkUpdate').disabled=true;$('installUpdate').disabled=true;
   try{
-   let data=await localApi('update',{action});
-   while(showUpdate(data)){await new Promise(r=>setTimeout(r,500));data=await localApi('update');}
+   let data=action?await localApi('update',{action}):await localApi('update');
+   const startingVersion=data.current;
+   if(!action&&data.state==='idle')data=await localApi('update',{action:'check'});
+   let disconnected=0;
+   while(showUpdate(data)){
+    await new Promise(r=>setTimeout(r,data.state==='scheduled'?1500:350));
+    try{
+     data=await localApi('update');disconnected=0;
+     if(data.current!==startingVersion){
+      if(!busy&&!pending.size&&!syncDirty)location.reload();
+      else {$('updateMessage').textContent='업데이트 완료 · 설정을 보존하고 페이지를 새로고침하세요.';}
+      return;
+     }
+    }catch(e){
+     if(updateState!=='scheduled')throw e;
+     $('updateMessage').textContent='Fusion 설치 및 재실행 대기 중…';
+     if(++disconnected>=120){$('updateMessage').textContent='Fusion 재연결 대기 시간 초과 · 설치 안내를 확인하고 페이지를 새로고침하세요.';return;}
+    }
+   }
+   if(action==='download'&&data.state==='ready')confirmInstall();
   }catch(e){$('updateMessage').textContent='업데이트 오류: '+e.message;$('checkUpdate').disabled=false;}
   finally{updatePolling=false}
  }
  $('checkUpdate').onclick=()=>updateAction('check');
- $('installUpdate').onclick=()=>{if(busy||pending.size||syncDirty){$('updateMessage').textContent='먼저 미전송 설정을 쓰거나 저장한 뒤 업데이트하세요.';return;}if(confirm('업데이트를 다운로드하고 Fusion 종료 후 자동 설치할까요? 작업을 저장하고 설치 완료 안내를 기다린 뒤 Fusion을 다시 실행하세요.'))updateAction('install')};
- updateAction('check');
+ $('installUpdate').onclick=()=>{if(!updateSafe())return;if(updateState==='ready')confirmInstall();else updateAction('download')};
+ $('updateLater').onclick=()=>$('updateConfirm').close();
+ $('updateNow').onclick=()=>{if(!updateSafe()){$('updateConfirm').close();return;}$('updateConfirm').close();updateAction('install')};
+ updateAction(null);
  $('knobTrace').hidden=false;
  $('startTrace').onclick=async()=>{
   const button=$('startTrace'),out=$('traceResult');button.disabled=true;

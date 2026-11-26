@@ -23,6 +23,7 @@ class LocalEditorTest(unittest.TestCase):
                         return json.load(response)
                 self.assertEqual(request("/api/update")["current"],"0.3.21")
                 self.assertEqual(request("/api/update",{"action":"check"})["action"],"check")
+                self.assertEqual(request("/api/update",{"action":"download"})["action"],"download")
                 self.assertEqual(request("/api/update",{"action":"install"})["action"],"install")
                 for body,headers,code in [({"action":"install","url":"https://example.com"},{},400),({"action":"install"},{"Origin":"https://example.com"},403),({"action":"install"},{"X-FMS-Local":"0"},403)]:
                     with self.assertRaises(HTTPError) as error:request("/api/update",body,headers)

@@ -1,7 +1,7 @@
 import hashlib,io,json,pathlib,sys,tempfile,unittest,zipfile
 from unittest.mock import patch
 sys.path.insert(0,str(pathlib.Path(__file__).parents[1]))
-from FusionMacroStudio.updater import Updater, release_info, unpack, version_tuple
+from FusionMacroStudio.updater import Updater, release_info, unpack, version_tuple, cached_package, retain_packages
 
 class UpdateTest(unittest.TestCase):
     def package(self,extra=None):
@@ -37,3 +37,39 @@ class UpdateTest(unittest.TestCase):
             u=Updater(d,'0.3.22');u.check()
             self.assertEqual(u.snapshot()['state'],'current')
             with self.assertRaises(ValueError):u.request('install')
+
+    def test_cache_reuse_and_retention(self):
+        raw,info=self.package()
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)
+            calls=[]
+            progress=[]
+            def fetcher(name,size,cb):
+                calls.append(name)
+                cb(50)
+                return raw
+            self.assertEqual(cached_package(root,info,progress.append,fetcher),raw)
+            self.assertEqual(cached_package(root,info,progress.append,fetcher),raw)
+            self.assertEqual(len(calls),1)
+            self.assertEqual(progress,[50,100,100])
+            for v in ("0.3.9","0.3.20","0.3.21","0.3.23"):
+                (root/f"FusionMacroStudio-Addin-Setup-{v}.zip").write_bytes(b"old")
+            (root/"notes.txt").write_text("keep")
+            retain_packages(root,"0.3.22")
+            self.assertEqual(sorted(p.name for p in root.iterdir()),["FusionMacroStudio-Addin-Setup-0.3.21.zip","FusionMacroStudio-Addin-Setup-0.3.22.zip","FusionMacroStudio-Addin-Setup-0.3.23.zip","notes.txt"])
+            with self.assertRaises(ValueError):
+                cached_package(root,dict(info,sha256="0"*64),progress.append,fetcher)
+            self.assertEqual((root/info["file"]).read_bytes(),raw)
+
+    def test_download_requires_separate_install_confirmation(self):
+        raw,info=self.package()
+        with tempfile.TemporaryDirectory() as d:
+            u=Updater(d,"0.3.21")
+            u.info=info
+            u.state="available"
+            with self.assertRaises(ValueError):u.request("install")
+            with patch("FusionMacroStudio.updater.fetch",return_value=raw):
+                u.download()
+            self.assertEqual(u.snapshot()["state"],"ready")
+            self.assertEqual(u.snapshot()["progress"],100)
+            self.assertIsNone(u.process)
