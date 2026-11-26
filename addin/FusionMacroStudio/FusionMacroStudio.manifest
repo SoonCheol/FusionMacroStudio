@@ -1,0 +1,12 @@
+{
+  "autodeskProduct": "Fusion360",
+  "type": "addin",
+  "author": "FusionMacroStudio",
+  "description": {
+    "": "Independent Fusion Macro Studio keypad command bridge"
+  },
+  "version": "0.2.0",
+  "runOnStartup": true,
+  "supportedOS": "windows",
+  "editEnabled": true
+}

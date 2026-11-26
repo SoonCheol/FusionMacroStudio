@@ -2,7 +2,7 @@ name: Validate and deploy Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/**', 'addin/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +20,8 @@ jobs:
         with:
           node-version: '22'
       - run: node --check site/app.js && node --test site/protocol.test.js
+      - run: python -m unittest discover -s addin/tests && python -m compileall -q addin/FusionMacroStudio
+      - run: mkdir -p site/downloads && cd addin && zip -r ../site/downloads/FusionMacroStudio-Addin-Setup.zip FusionMacroStudio Setup.cmd setup.ps1 README.txt -x '*/__pycache__/*'
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
