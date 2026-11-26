@@ -65,3 +65,18 @@
 
 /* Fixed key width and compact contextual controls. */
 .key-cell,.knob-cell{position:relative;min-width:0;display:grid;align-items:stretch}.key-cell>.key,.knob-cell>.knob-action{width:100%;min-width:0}.key-cell>.key{padding-right:4px}.knob-cell>.knob-action{padding-right:21px}.remove-command{position:absolute;right:3px;top:3px;width:17px;height:17px;border:0;border-radius:4px;background:transparent;padding:0;line-height:16px;font-size:15px;color:var(--muted);z-index:1}.remove-command:hover:not(:disabled){color:#fff;background:#b33b42}.remove-command:disabled{visibility:hidden}.knob-cell .remove-command{top:50%;transform:translateY(-50%)}.key-column .message-box{min-width:0;min-height:78px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel)}.message-box .hint{overflow-wrap:anywhere;line-height:1.5}.knob-switches{display:flex;align-items:center;justify-content:space-between;gap:3px;width:100%;min-width:0}.knob-switches .knob-switch{width:auto;flex:1;min-width:0;gap:3px;font-size:10px}.knob-switches .switch-track{flex-basis:23px}.knob-switches .switch-track:after{width:9px;height:9px;top:2.5px}.knob-switches .knob-switch[aria-checked=true] .switch-track:after{transform:translateX(10px)}.orbit-switch:disabled{opacity:.35;cursor:not-allowed}.knob-switches .orbit-switch{border-left:1px solid var(--line);border-radius:0;padding-left:4px}.version-table{width:100%;border-collapse:collapse;margin:14px 0}.version-table th,.version-table td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}.version-table th{font-weight:500;color:var(--muted)}#desktopUpdates{width:min(490px,92vw)}#desktopUpdates #desktopMessage,#desktopUpdates #addinMessage{min-height:18px;line-height:1.5;overflow-wrap:anywhere}#desktopInstall:not(:disabled){background:var(--accent);color:white}#desktopProgress{width:100%}.top-actions button[hidden]{display:none}
+
+/* Keep the two controls in separate columns even when the editor is narrowed. */
+.knob-switches{container-type:inline-size;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch}
+.knob-switches .knob-switch{width:100%;flex:none;min-width:0;gap:3px;padding:3px 2px;white-space:nowrap}
+.knob-switches .knob-switch>span:not(.switch-track){flex:0 0 auto}
+.knob-switches .orbit-switch{border-left:0;border-radius:6px;padding-left:2px;position:relative}
+.knob-switches .orbit-switch:before{content:"";position:absolute;left:-5px;top:3px;bottom:3px;width:1px;background:var(--line)}
+@container (max-width:199px){
+ .knob-switches .knob-switch[aria-checked=false] .switch-held,.knob-switches .knob-switch[aria-checked=true] .switch-normal{display:none}
+ .knob-switches .knob-switch{gap:4px}
+}
+@container (max-width:140px){
+ .knob-switches .knob-switch{flex-direction:column;gap:3px}
+ .knob-switches .switch-track{flex:0 0 14px;width:23px}
+}

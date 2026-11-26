@@ -100,12 +100,12 @@ function renderKnob(k,l){
  const dial=document.createElement('div');dial.className='dial';
  const label=document.createElement('span');label.textContent='노브 '+(k+1);label.className='hint';
  const held=viewReady&&knobViews[layer][k],base=16+k*3,press=base+1,mode=l.fusion[press]?.id;
- const toggle=document.createElement('button');toggle.type='button';toggle.className='knob-switch';toggle.setAttribute('role','switch');toggle.setAttribute('aria-checked',String(held));toggle.setAttribute('aria-label','노브 '+(k+1)+' 누른 채 회전 보기');toggle.disabled=busy||!viewReady||!readReady;
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='knob-switch';toggle.setAttribute('role','switch');toggle.setAttribute('aria-checked',String(held));toggle.setAttribute('aria-label','노브 '+(k+1)+' 일반/누른 채 회전 보기');toggle.title=held?'누른 채 회전 · 일반으로 전환':'일반 회전 · 누른 채로 전환';toggle.disabled=busy||!viewReady||!readReady;
  for(const [cls,value] of [['switch-normal','일반'],['switch-track',''],['switch-held','누른 채']]){const span=document.createElement('span');span.className=cls;span.textContent=value;toggle.append(span)}
  toggle.onclick=()=>{knobViews[layer][k]=!held;selected=null;renderKeys();};
  const orbit=document.createElement('button');orbit.type='button';orbit.className='knob-switch orbit-switch';orbit.setAttribute('role','switch');orbit.setAttribute('aria-label','노브 '+(k+1)+' '+(held?'누른 채 ':'일반 ')+' 오비트 방식');
  const active=knobOrbit(l,k,held),free=active.length>0&&active.every(id=>orbitMode(id,legacyOrbitMode)==='free');
- orbit.setAttribute('aria-checked',String(free));orbit.disabled=busy||!viewReady||!readReady||!active.length;orbit.title=active.length?(free?'자유 오비트':'제한 오비트'):'오비트 명령 미등록';
+ orbit.setAttribute('aria-checked',String(free));orbit.disabled=busy||!viewReady||!readReady||!active.length;orbit.title=active.length?(free?'자유 오비트 · 제한으로 전환':'제한 오비트 · 자유로 전환'):'오비트 명령 미등록';
  for(const [cls,value] of [['switch-normal','제한'],['switch-track',''],['switch-held','자유']]){const span=document.createElement('span');span.className=cls;span.textContent=value;orbit.append(span)}
  orbit.onclick=()=>toggleOrbit(k,held);
  const switches=document.createElement('div');switches.className='knob-switches';switches.append(toggle,orbit);
@@ -204,7 +204,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.4.3',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.4.4',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;

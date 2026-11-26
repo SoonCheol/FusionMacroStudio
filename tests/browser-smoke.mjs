@@ -43,6 +43,26 @@ async function verifyKeyGeometry(stage){
  assert.ok(g.buttons.slice(0,4).every(b=>Math.abs(b.top-g.buttons[0].top)<2),stage+' four columns');
  assert.ok(g.buttons[4].top>g.buttons[0].top&&g.buttons[8].top>g.buttons[4].top,stage+' three rows');
 }
+async function verifySwitchGeometry(stage){
+ await settle();
+ const errors=await page.evaluate(()=>{
+  const bad=[],rect=e=>e.getBoundingClientRect();
+  for(const group of document.querySelectorAll('.knob-switches')){
+   const buttons=[...group.querySelectorAll('.knob-switch')],a=rect(buttons[0]),b=rect(buttons[1]);
+   if(b.left-a.right<6||Math.abs(a.top-b.top)>1)bad.push('switch columns overlap or wrap');
+   for(const button of buttons){
+    const r=rect(button),parts=[...button.children].map(rect).filter(p=>p.width&&p.height);
+    for(const p of parts)if(p.left<r.left-.5||p.right>r.right+.5||p.top<r.top-.5||p.bottom>r.bottom+.5)bad.push('switch content overflow '+button.getAttribute('aria-label'));
+    for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){
+     const p=parts[i],q=parts[j];
+     if(Math.min(p.right,q.right)-Math.max(p.left,q.left)>.5&&Math.min(p.bottom,q.bottom)-Math.max(p.top,q.top)>.5)bad.push('switch labels overlap');
+    }
+   }
+  }
+  return bad;
+ });
+ assert.deepEqual(errors,[],stage+' switch geometry');
+}
 async function verifyLabels(stage){
  await settle();
  const result=await page.evaluate(()=>{
@@ -77,6 +97,7 @@ try{
  assert.equal(await page.locator('#desktopCheck').isVisible(),false);
  assert.equal(await page.locator('#orbitSettings').count(),0);
  await verifyKeyGeometry('Disconnected keyboard');
+ await verifySwitchGeometry('1920 disconnected');
  assert.equal(await page.locator('#read').innerText(),'기기에서 읽기');
  assert.equal(await page.locator('#write').innerText(),'기기에 쓰기');
  await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
@@ -95,6 +116,10 @@ try{
  await verifyLabels('English all commands');
  await page.setViewportSize({width:1280,height:900});
  await verifyLabels('English 1280');
+ await verifySwitchGeometry('1280');
+ await page.setViewportSize({width:900,height:900});
+ await verifySwitchGeometry('900');
+ await page.setViewportSize({width:1280,height:900});
  await page.locator('#ko').click();await page.locator('#search').fill('구성요소');
  await verifyLabels('Korean search 1280');
  await page.locator('#resetSearch').click();
@@ -115,9 +140,11 @@ try{
  assert.equal(await page.locator('.orbit-switch').nth(1).isDisabled(),true);
  await page.locator('.orbit-switch').first().click();
  assert.equal(await page.locator('.orbit-switch').first().getAttribute('aria-checked'),'true');
+ await verifySwitchGeometry('free orbit');
  await page.locator('.knob-switch:not(.orbit-switch)').first().click();
  assert.equal(await page.locator('.orbit-switch').first().isDisabled(),true);
  assert.equal(await page.locator('.knob-switch:not(.orbit-switch)').first().getAttribute('aria-checked'),'true');
+ await verifySwitchGeometry('held');
  assert.equal(await page.locator('.knob-switch:not(.orbit-switch)').nth(1).getAttribute('aria-checked'),'false');
  await page.locator('[data-command-id="__fms_orbit_up__"]').dragTo(page.locator('#knobs .knob').first().locator('.knob-action').first());
  await page.locator('[data-command-id="__fms_pan_down__"]').dragTo(page.locator('#knobs .knob').first().locator('.knob-action').last());
