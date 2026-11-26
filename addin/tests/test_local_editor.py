@@ -28,6 +28,14 @@ class LocalEditorTest(unittest.TestCase):
                 for body,headers,code in [({"action":"install","url":"https://example.com"},{},400),({"action":"install"},{"Origin":"https://example.com"},403),({"action":"install"},{"X-FMS-Local":"0"},403)]:
                     with self.assertRaises(HTTPError) as error:request("/api/update",body,headers)
                     self.assertEqual(error.exception.code,code)
+                self.assertEqual(request("/api/orbit-mode"),{"mode":"constrained"})
+                self.assertEqual(request("/api/orbit-mode",{"mode":"free"}),{"mode":"free"})
+                self.assertEqual(request("/api/orbit-mode"),{"mode":"free"})
+                with self.assertRaises(HTTPError) as error:request("/api/orbit-mode",{"mode":"bad"})
+                self.assertEqual(error.exception.code,400)
+                with self.assertRaises(HTTPError) as error:request("/api/orbit-mode",{"mode":"constrained"},{"Origin":"https://example.com"})
+                self.assertEqual(error.exception.code,403)
+                self.assertEqual(request("/api/orbit-mode"),{"mode":"free"})
                 initial=request("/api/profile")
                 self.assertIsNone(initial["profile"])
                 profile={"format":"fusion-macro-studio-v1","knobBase":16,"layers":[{"fusion":{"1":{"id":"DrawPolyline"}},"bindings":{"1":{"type":"key","steps":[{"mods":0,"code":104}],"delay":0}}},{"fusion":{},"bindings":{}},{"fusion":{},"bindings":{}}]}

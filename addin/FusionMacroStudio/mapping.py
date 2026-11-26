@@ -159,3 +159,44 @@ class CameraRate:
         if interval<=0 or interval>=.18:
             return 1.0
         return min(2.5,max(1.0,.18/interval))
+
+
+# Constrained camera orbit: fixed model up axis, horizontal pitch axis,
+# no roll; clamp pitch short of the pole to avoid a singular camera basis.
+def unit_vector(v):
+    import math
+    length=math.sqrt(sum(x*x for x in v))
+    if not math.isfinite(length) or length<1e-10:
+        raise ValueError("Invalid camera direction")
+    return tuple(x/length for x in v)
+
+def dot_vector(a,b):
+    return sum(x*y for x,y in zip(a,b))
+
+def cross_vector(a,b):
+    return (a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0])
+
+def constrained_step(forward, camera_up, world_up, vertical, angle):
+    import math
+    forward, world_up=unit_vector(forward),unit_vector(world_up)
+    if not vertical:
+        return world_up,angle
+    elevation=math.asin(max(-1.,min(1.,dot_vector(forward,world_up))))
+    limit=math.radians(89)
+    try:
+        axis=unit_vector(cross_vector(forward,world_up))
+    except ValueError:
+        axis=unit_vector(cross_vector(forward,camera_up))
+    # At a top/bottom view, only movement away from the pole is allowed.
+    desired=max(-limit,min(limit,elevation+angle))
+    if abs(elevation)>limit and ((elevation>0 and angle>=0) or (elevation<0 and angle<=0)):
+        return axis,0.
+    return axis,desired-elevation
+
+def constrained_up(forward, world_up, fallback):
+    forward,world_up=unit_vector(forward),unit_vector(world_up)
+    try:
+        right=unit_vector(cross_vector(forward,world_up))
+    except ValueError:
+        right=unit_vector(cross_vector(forward,fallback))
+    return unit_vector(cross_vector(right,forward))

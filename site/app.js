@@ -160,6 +160,15 @@ async function syncProfile(summary){
 }
 if(localMode){
  $('localUpdateLink').hidden=true;
+ $('orbitSettings').style.display='';
+ const orbitSelect=$('orbitMode'),orbitStatus=$('orbitModeStatus');
+ localApi('orbit-mode').then(data=>{orbitSelect.value=data.mode;orbitSelect.disabled=false;orbitStatus.textContent='즉시 적용'}).catch(e=>{orbitStatus.textContent='회전 설정 조회 실패: '+e.message});
+ orbitSelect.onchange=async()=>{
+  orbitSelect.disabled=true;
+  try{const saved=await localApi('orbit-mode',{mode:orbitSelect.value});orbitSelect.value=saved.mode;orbitStatus.textContent='적용 완료';}
+  catch(e){orbitStatus.textContent='저장 실패: '+e.message;try{orbitSelect.value=(await localApi('orbit-mode')).mode}catch{}}
+  finally{orbitSelect.disabled=false}
+ };
  $('updateBar').hidden=false;
  let updatePolling=false,updateState='idle',updateData=null;
  function showUpdate(data){

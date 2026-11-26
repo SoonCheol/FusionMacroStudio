@@ -5,7 +5,7 @@
   "description": {
     "": "Independent Fusion Macro Studio keypad command bridge"
   },
-  "version": "0.3.23",
+  "version": "0.3.24",
   "runOnStartup": true,
   "supportedOS": "windows",
   "editEnabled": true

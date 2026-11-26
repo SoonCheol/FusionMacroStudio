@@ -33,6 +33,15 @@ def read_profile(path):
         raise ValueError("Profile too large")
     return path.read_bytes()
 
+def read_orbit_mode(home):
+    try:
+        mode=json.loads((Path(home)/"orbit-settings.json").read_text(encoding="utf-8"))["mode"]
+        if mode in ("free","constrained"):
+            return mode
+    except (OSError,ValueError,KeyError,TypeError):
+        pass
+    return "constrained"
+
 def start_editor(home, web, port=PORT, trace=None, updater=None):
     home, web = Path(home), Path(web)
     if not (web / "index.html").is_file():
@@ -91,6 +100,8 @@ def start_editor(home, web, port=PORT, trace=None, updater=None):
                     self.reply(200, {"profile": json.loads(raw.decode("utf-8-sig")) if raw is not None else None, "revision": revision(raw)})
                 elif path == "/api/knob-trace" and trace is not None:
                     self.reply(200, trace.snapshot())
+                elif path == "/api/orbit-mode":
+                    self.reply(200, {"mode":read_orbit_mode(home)})
                 elif path == "/api/update" and updater is not None:
                     self.reply(200, updater.snapshot())
                 elif path == "/api/status":
@@ -102,7 +113,7 @@ def start_editor(home, web, port=PORT, trace=None, updater=None):
                 self.reply(500, {"error": str(exc)})
         def do_POST(self):
             path = urlsplit(self.path).path
-            if path not in ("/api/profile", "/api/knob-trace", "/api/update") or not self.permitted(True, True):
+            if path not in ("/api/profile", "/api/knob-trace", "/api/update", "/api/orbit-mode") or not self.permitted(True, True):
                 self.send_error(403)
                 return
             try:
@@ -113,6 +124,13 @@ def start_editor(home, web, port=PORT, trace=None, updater=None):
                     raise ValueError("Invalid profile size")
                 self.connection.settimeout(5)
                 request = json.loads(self.rfile.read(length))
+                if path == "/api/orbit-mode":
+                    if request not in ({"mode":"free"},{"mode":"constrained"}):
+                        raise ValueError("Invalid orbit mode")
+                    with lock:
+                        atomic_write(home/"orbit-settings.json",json.dumps(request).encode("utf-8"))
+                    self.reply(200,request)
+                    return
                 if path == "/api/update":
                     if updater is None or request not in ({"action":"check"},{"action":"download"},{"action":"install"}):
                         raise ValueError("Invalid update request")

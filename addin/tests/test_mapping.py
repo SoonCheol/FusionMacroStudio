@@ -104,4 +104,21 @@ class Test(unittest.TestCase):
             self.assertEqual(m.execute_definition(Definitions(command),"DrawPolyline"),expected)
             self.assertEqual(command.calls,calls)
         self.assertEqual(m.execute_definition(Definitions(None),"DrawPolyline"),"Unavailable command")
+    def test_constrained_orbit(self):
+        import math
+        for up,forward in [((0,0,1),(0,1,0)),((0,1,0),(0,0,-1))]:
+            self.assertEqual(m.constrained_step(forward,up,up,False,.2),(up,.2))
+            axis,angle=m.constrained_step(forward,up,up,True,.2)
+            self.assertAlmostEqual(m.dot_vector(axis,up),0)
+            self.assertAlmostEqual(angle,.2)
+            tilted=m.unit_vector(tuple(a+b for a,b in zip(forward,up)))
+            projected=m.constrained_up(tilted,up,(1,0,0))
+            self.assertAlmostEqual(m.dot_vector(tilted,projected),0)
+            self.assertGreater(m.dot_vector(projected,up),0)
+            axis,angle=m.constrained_step(tilted,projected,up,True,math.pi)
+            self.assertAlmostEqual(angle,math.radians(44))
+            axis,angle=m.constrained_step(up,forward,up,True,-.2)
+            self.assertLess(angle,0)
+            self.assertAlmostEqual(m.dot_vector(axis,up),0)
+            self.assertEqual(m.constrained_step(up,forward,up,True,.2)[1],0.)
 if __name__=="__main__":unittest.main()

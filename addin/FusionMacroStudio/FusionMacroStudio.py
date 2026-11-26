@@ -10,15 +10,15 @@ import shutil
 import threading
 import time
 import traceback
-from .mapping import load_mapping, zoom_extents, execute_definition, CameraRate
+from .mapping import load_mapping, zoom_extents, execute_definition, CameraRate, constrained_step, constrained_up
 from .keyboard_hook import Hook, foreground
 from .direct_codes import load_codes
-from .local_editor import start_editor, stop_editor, revision
+from .local_editor import start_editor, stop_editor, revision, read_orbit_mode
 from .updater import Updater
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.23"
+VERSION = "0.3.24"
 app = None
 handler = None
 event = None
@@ -148,6 +148,19 @@ def orbit_center(cam):
     orbit_cache=(document,now,point)
     return point.copy() if point else cam.target
 
+def vector_xyz(v):
+    return (v.x,v.y,v.z)
+
+def model_up():
+    # Fusion's documented default modeling orientation (Z-up or Y-up).
+    try:
+        pref=app.preferences.generalPreferences.defaultModelingOrientation
+        if pref==adsk.core.DefaultModelingOrientations.YUpModelingOrientation:
+            return (0.,1.,0.)
+    except Exception:
+        pass
+    return (0.,0.,1.)
+
 def camera_action(command, amount=1.0):
     amount=max(1.0,min(20.0,float(amount)))
     viewport = app.activeViewport
@@ -211,14 +224,20 @@ def camera_action(command, amount=1.0):
         cam.target = target
     else:
         up = cam.upVector
-        if command in ("__fms_orbit_up__","__fms_orbit_down__"):
-            direction = cam.eye.vectorTo(cam.target)
-            axis = direction.crossProduct(up)
+        direction = cam.eye.vectorTo(cam.target)
+        vertical = command in ("__fms_orbit_up__","__fms_orbit_down__")
+        angle = math.radians((7 if command in ("__fms_orbit_left__","__fms_orbit_up__") else -7)*amount)
+        constrained=read_orbit_mode(HOME)=="constrained"
+        if constrained:
+            world_up=model_up()
+            axis_xyz,angle=constrained_step(vector_xyz(direction),vector_xyz(up),world_up,vertical,angle)
+            if abs(angle)<1e-10:
+                return
+            axis=adsk.core.Vector3D.create(*axis_xyz)
         else:
-            axis = up.copy()
+            axis=direction.crossProduct(up) if vertical else up.copy()
         if not axis.normalize():
             raise RuntimeError('Invalid orbit axis')
-        angle = math.radians((7 if command in ("__fms_orbit_left__","__fms_orbit_up__") else -7)*amount)
         matrix = adsk.core.Matrix3D.create()
         if not matrix.setToRotation(angle,axis,orbit_center(cam)):
             raise RuntimeError('Orbit rotation failed')
@@ -229,6 +248,9 @@ def camera_action(command, amount=1.0):
         cam.eye = eye
         cam.target = target
         up.transformBy(matrix)
+        if constrained:
+            forward=eye.vectorTo(target)
+            up=adsk.core.Vector3D.create(*constrained_up(vector_xyz(forward),world_up,vector_xyz(up)))
         cam.upVector = up
     viewport.camera = cam
     viewport.refresh()
