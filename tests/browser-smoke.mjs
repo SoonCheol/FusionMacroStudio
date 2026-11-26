@@ -81,6 +81,17 @@ try{
  await page.locator('#search').fill('DrawPolyline');
  await verifyLabels('Theme and search');
  await page.screenshot({path:'browser-preview/editor-assigned.png'});
+ await page.locator('#camera').click();
+ for(const [id,i] of [['__fms_orbit_left__',0],['__fms_orbit_right__',2]]){page.once('dialog',d=>d.accept());await page.locator('[data-command-id="'+id+'"]').dragTo(page.locator('#knobs .knob').first().locator('.knob-action').nth(i));}
+ await page.locator('.knob-switch').first().click();
+ assert.equal(await page.locator('.knob-switch').first().getAttribute('aria-checked'),'true');
+ assert.equal(await page.locator('.knob-switch').nth(1).getAttribute('aria-checked'),'false');
+ page.once('dialog',d=>d.accept());
+ await page.locator('.knob-hold-mode').selectOption('__fms_hold_vertical__');
+ assert.ok((await page.locator('#knobs .knob').first().innerText()).includes('위 오비트'));
+ assert.ok((await page.locator('#knobs .knob').first().innerText()).includes('아래 오비트'));
+ await page.locator('.knob-switch').first().click();
+ assert.ok((await page.locator('#knobs .knob').first().innerText()).includes('왼쪽 오비트'));
  page.once('dialog',d=>d.accept());
  await page.locator('#clearLayer').click();
  assert.equal(await page.locator('#keys .key img').count(),0);
