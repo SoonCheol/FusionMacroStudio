@@ -159,6 +159,31 @@ async function syncProfile(summary){
  }catch(e){syncDirty=true;persist();state(summary+' · Fusion 반영 실패: '+e.message+' · 쓰기로 재시도');log(e.message)}
 }
 if(localMode){
+ $('localUpdateLink').hidden=true;
+ $('updateBar').hidden=false;
+ let updatePolling=false;
+ function showUpdate(data){
+  $('updateVersion').textContent='현재 '+data.current+' · 최신 '+(data.latest||'확인 전');
+  const waiting=['checking','downloading','scheduled'].includes(data.state);
+  $('checkUpdate').disabled=waiting;
+  $('installUpdate').disabled=data.state!=='available';
+  const messages={idle:'',checking:'최신 버전 확인 중',current:'최신 버전 사용 중',available:'새 버전 사용 가능',downloading:'다운로드 및 검증 중',scheduled:'설치 준비 완료 · Fusion을 저장하고 종료하세요. 설치 완료 창이 나타나면 다시 실행하세요.',error:'업데이트 실패: '+data.error};
+  $('updateMessage').textContent=messages[data.state]||'';
+  if(data.state==='current'&&data.last_result?.state==='installed')$('updateMessage').textContent='업데이트 적용 완료 · '+data.current;
+  return waiting&&data.state!=='scheduled';
+ }
+ async function updateAction(action){
+  if(updatePolling)return;
+  updatePolling=true;$('checkUpdate').disabled=true;$('installUpdate').disabled=true;
+  try{
+   let data=await localApi('update',{action});
+   while(showUpdate(data)){await new Promise(r=>setTimeout(r,500));data=await localApi('update');}
+  }catch(e){$('updateMessage').textContent='업데이트 오류: '+e.message;$('checkUpdate').disabled=false;}
+  finally{updatePolling=false}
+ }
+ $('checkUpdate').onclick=()=>updateAction('check');
+ $('installUpdate').onclick=()=>{if(busy||pending.size||syncDirty){$('updateMessage').textContent='먼저 미전송 설정을 쓰거나 저장한 뒤 업데이트하세요.';return;}if(confirm('업데이트를 다운로드하고 Fusion 종료 후 자동 설치할까요? 작업을 저장하고 설치 완료 안내를 기다린 뒤 Fusion을 다시 실행하세요.'))updateAction('install')};
+ updateAction('check');
  $('knobTrace').hidden=false;
  $('startTrace').onclick=async()=>{
   const button=$('startTrace'),out=$('traceResult');button.disabled=true;

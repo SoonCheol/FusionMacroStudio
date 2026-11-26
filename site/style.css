@@ -51,3 +51,5 @@
 .knob-hold-hint{text-align:center;font-size:10px;line-height:1.25}
 
 .knob-hold-status{min-height:31px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;font-size:10px;color:var(--muted);text-align:center}
+
+.update-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 18px;border-bottom:1px solid var(--line);background:var(--panel)}.update-bar[hidden]{display:none}.update-bar button{padding:4px 9px;font-size:12px}#updateMessage{flex:1 1 180px}#localUpdateLink[hidden]{display:none}

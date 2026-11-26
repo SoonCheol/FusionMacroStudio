@@ -33,7 +33,7 @@ def read_profile(path):
         raise ValueError("Profile too large")
     return path.read_bytes()
 
-def start_editor(home, web, port=PORT, trace=None):
+def start_editor(home, web, port=PORT, trace=None, updater=None):
     home, web = Path(home), Path(web)
     if not (web / "index.html").is_file():
         raise FileNotFoundError("Local editor assets missing")
@@ -91,6 +91,8 @@ def start_editor(home, web, port=PORT, trace=None):
                     self.reply(200, {"profile": json.loads(raw.decode("utf-8-sig")) if raw is not None else None, "revision": revision(raw)})
                 elif path == "/api/knob-trace" and trace is not None:
                     self.reply(200, trace.snapshot())
+                elif path == "/api/update" and updater is not None:
+                    self.reply(200, updater.snapshot())
                 elif path == "/api/status":
                     file = home / "status.json"
                     self.reply(200, json.loads(file.read_text(encoding="utf-8")) if file.exists() else {})
@@ -100,7 +102,7 @@ def start_editor(home, web, port=PORT, trace=None):
                 self.reply(500, {"error": str(exc)})
         def do_POST(self):
             path = urlsplit(self.path).path
-            if path not in ("/api/profile", "/api/knob-trace") or not self.permitted(True, True):
+            if path not in ("/api/profile", "/api/knob-trace", "/api/update") or not self.permitted(True, True):
                 self.send_error(403)
                 return
             try:
@@ -111,6 +113,11 @@ def start_editor(home, web, port=PORT, trace=None):
                     raise ValueError("Invalid profile size")
                 self.connection.settimeout(5)
                 request = json.loads(self.rfile.read(length))
+                if path == "/api/update":
+                    if updater is None or request not in ({"action":"check"},{"action":"install"}):
+                        raise ValueError("Invalid update request")
+                    self.reply(200, updater.request(request["action"]))
+                    return
                 if path == "/api/knob-trace":
                     if trace is None or request != {"start": True}:
                         raise ValueError("Invalid trace request")

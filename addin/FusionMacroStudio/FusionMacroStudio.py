@@ -14,10 +14,11 @@ from .mapping import load_mapping, zoom_extents, execute_definition, CameraRate
 from .keyboard_hook import Hook, foreground
 from .direct_codes import load_codes
 from .local_editor import start_editor, stop_editor, revision
+from .updater import Updater
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.20"
+VERSION = "0.3.21"
 app = None
 handler = None
 event = None
@@ -361,7 +362,7 @@ def run(context):
         hook=Hook(enqueue,codes)
         hook.start()
         try:
-            editor_server, editor_thread = start_editor(HOME, Path(__file__).parent / 'web', trace=hook.trace)
+            editor_server, editor_thread = start_editor(HOME, Path(__file__).parent / 'web', trace=hook.trace, updater=Updater(HOME, VERSION))
             log('Local editor: http://127.0.0.1:18472/')
         except Exception:
             log('Local editor unavailable: ' + traceback.format_exc())

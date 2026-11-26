@@ -57,6 +57,19 @@ jobs:
           if ($errors.Count) { $errors | Format-List; throw 'Installer syntax error' }
       - run: cp -R site addin/FusionMacroStudio/web
       - run: mkdir -p site/downloads && cd addin && zip -r ../site/downloads/FusionMacroStudio-Addin-Setup.zip FusionMacroStudio Setup.cmd setup.ps1 README.txt -x '*/__pycache__/*'
+      - name: Publish versioned update manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib,shutil
+          manifest=json.loads(pathlib.Path('addin/FusionMacroStudio/FusionMacroStudio.manifest').read_text())
+          version=manifest['version']
+          folder=pathlib.Path('site/downloads')
+          source=folder/'FusionMacroStudio-Addin-Setup.zip'
+          name=f'FusionMacroStudio-Addin-Setup-{version}.zip'
+          shutil.copyfile(source,folder/name)
+          raw=source.read_bytes()
+          (folder/'latest.json').write_text(json.dumps(dict(version=version,file=name,sha256=hashlib.sha256(raw).hexdigest(),size=len(raw))))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: FusionMacroStudio-Addin-Setup

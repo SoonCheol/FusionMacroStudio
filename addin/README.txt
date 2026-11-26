@@ -18,3 +18,5 @@ Direct code mode (v0.3.16): use public Pages for new assignments. The fixed regi
 0.3.18: assign independent camera commands in the Normal/Held knob views. Both commands reside in one rotation record. Hold marker is automatically assigned per knob. Real overlapping hardware signals are still unverified. Existing codes remain supported.
 
 0.3.20: independent knob rotation supports fixed registered executable commands; camera pairs keep the short encoding, other pairs use an extended 14-step encoding. Hardware behavior still requires validation.
+
+0.3.21: install once using Setup.cmd, then open http://127.0.0.1:18472/ while Fusion runs. Check update, confirm, save and close Fusion, wait for installer completion message, then restart Fusion manually. Profiles and device settings are not modified. Update package checksum and manifest are validated. Do not reopen Fusion before installation completes.

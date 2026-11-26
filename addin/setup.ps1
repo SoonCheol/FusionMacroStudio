@@ -1,12 +1,12 @@
 # FusionMacroStudio only. No admin rights required. Keep other add-ins intact.
-param([switch]$SelfTest)
+param([switch]$SelfTest,[switch]$AutomaticUpdate,[int]$WaitForPid=0,[string]$ExpectedVersion='')
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.20'
-$required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py','direct_codes.py')
+$packageVersion = '0.3.21'
+$required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py','direct_codes.py','updater.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
 function Read-Manifest([string]$path) {
     # Fusion uses an empty string for the default localized description.
@@ -92,6 +92,33 @@ function Install-Package {
     }
     # Keep the previous version as a private local backup, outside AddIns.
     if ($moved) { Write-Host "Previous add-in: $old" }
+}
+if ($AutomaticUpdate) {
+    New-Item -ItemType Directory -Path $homeDir -Force | Out-Null
+    $result = Join-Path $homeDir 'update-result.json'
+    function Write-UpdateResult($state,$errorText) {
+        @{state=$state;version=$packageVersion;error=$errorText} | ConvertTo-Json -Compress | Set-Content -LiteralPath $result -Encoding UTF8
+    }
+    try {
+        if ($SelfTest -or $ExpectedVersion -ne $packageVersion -or $WaitForPid -le 0) { throw 'Invalid automatic update request.' }
+        Write-UpdateResult 'waiting' ''
+        $deadline = [DateTime]::UtcNow.AddMinutes(30)
+        while ((Get-Process -Id $WaitForPid -ErrorAction SilentlyContinue) -or (Get-Process -Name 'Fusion360','Fusion' -ErrorAction SilentlyContinue)) {
+            if ([DateTime]::UtcNow -ge $deadline) { throw 'Fusion did not close within 30 minutes.' }
+            Start-Sleep -Milliseconds 500
+        }
+        $target = Get-Target
+        $installed = Read-Manifest (Join-Path $target 'FusionMacroStudio.manifest')
+        if ([version]$installed.version -ge [version]$packageVersion) { throw 'Installed version is already current or newer.' }
+        Install-Package
+        Write-UpdateResult 'installed' ''
+        [Windows.Forms.MessageBox]::Show("Fusion Macro Studio $packageVersion installed. Start Fusion again.",'Fusion Macro Studio') | Out-Null
+    } catch {
+        Write-UpdateResult 'error' $_.Exception.Message
+        [Windows.Forms.MessageBox]::Show($_.Exception.Message,'Fusion Macro Studio update failed') | Out-Null
+        exit 1
+    }
+    return
 }
 if ($SelfTest) {
     # Test only inside a disposable folder, never in the actual Fusion directory.
