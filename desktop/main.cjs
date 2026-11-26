@@ -2,7 +2,7 @@ const {app,BrowserWindow,protocol,net,ipcMain,dialog,Menu}=require('electron');
 const {autoUpdater}=require('electron-updater');
 const path=require('node:path'),fs=require('node:fs'),{pathToFileURL}=require('node:url'),{execFile}=require('node:child_process'),{promisify}=require('node:util');
 const {storage}=require('./storage.cjs');
-const {readRelease,downloadRelease,compareVersion}=require('./addin-release.cjs');
+const {readRelease,downloadRelease,compareVersion,httpsFetch}=require('./addin-release.cjs');
 const os=require('node:os');
 const execute=promisify(execFile);
 const ROOT=path.join(__dirname,'site'),URL='fms://editor/';
@@ -37,7 +37,7 @@ async function addinUpdate(action){
  if(installing||updateInstalling)throw Error('다른 설치 작업이 진행 중입니다.');
  if(action==='check'){
   const s=await addinStatus();release=null;updateAddinStatus(s);
-  try{release=await readRelease(net.fetch);return updateAddinStatus(s)}
+  try{release=await readRelease(httpsFetch);return updateAddinStatus(s)}
   catch(e){return {...addinInfo,state:'error',error:e.message}}
  }
  if(action!=='install'||!release)throw Error('먼저 최신 버전을 확인하세요.');
@@ -57,7 +57,7 @@ async function manageAddin(first=false){
   if(!first&&targetVersion!==bundledAddinVersion()){
    temporary=await fs.promises.mkdtemp(path.join(os.tmpdir(),'fms-addin-'));
    const archive=path.join(temporary,'release.zip'),out=path.join(temporary,'package');
-   await downloadRelease(net.fetch,release,archive);
+   await downloadRelease(httpsFetch,release,archive);
    await ps(['-Archive',archive,'-Destination',out,'-ExpectedVersion',targetVersion],path.join(process.resourcesPath,'addin-package','prepare-release.ps1'));
    installer=path.join(out,'setup.ps1');
   }
