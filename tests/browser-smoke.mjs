@@ -52,7 +52,11 @@ async function verifySwitchGeometry(stage){
    if(!buttons[0].classList.contains('orbit-switch')||b.top<a.bottom-.5||Math.abs(a.left-b.left)>1)bad.push('orbit row must precede normal/held row');
    const face=group.parentElement.querySelector('.knob-face'),label=rect(face.querySelector('.knob-number')),dial=rect(face.querySelector('.dial'));
    if(label.left>=dial.left||Math.abs(label.top-dial.top)>1||a.top<dial.bottom)bad.push('knob number or orbit row mispositioned');
+   const center=r=>r.left+r.width/2,axis=center(rect(group));
+   if(Math.abs(center(dial)-axis)>.75)bad.push('dial axis not centered');
    for(const button of buttons){
+    const track=rect(button.querySelector('.switch-track'));
+    if(Math.abs(center(track)-axis)>.75)bad.push('switch track not centered '+button.getAttribute('aria-label'));
     const r=rect(button),parts=[...button.children].map(rect).filter(p=>p.width&&p.height);
     for(const p of parts)if(p.left<r.left-.5||p.right>r.right+.5||p.top<r.top-.5||p.bottom>r.bottom+.5)bad.push('switch content overflow '+button.getAttribute('aria-label'));
     for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){
@@ -86,6 +90,10 @@ async function verifyLabels(stage){
 }
 try{
  await page.goto(url);await page.locator('#commands .command-card').first().waitFor();
+ assert.equal(await page.evaluate(async()=>{
+  const fonts=await document.fonts.load('14px "Pretendard Variable"','키보드 편집기');
+  return fonts.length>0&&fonts.every(font=>font.status==='loaded')&&getComputedStyle(document.body).fontFamily.includes('Pretendard Variable');
+ }),true,'Bundled Pretendard must load and be the default font');
  assert.equal(await page.locator('#keys .key').count(),12);
  assert.equal(await page.locator('.knob-action').count(),9);
  assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);

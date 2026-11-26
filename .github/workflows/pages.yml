@@ -2,7 +2,7 @@ name: Validate and deploy Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'addin/**', 'desktop/**', 'tests/browser-smoke.mjs', '.github/workflows/pages.yml']
+    paths: ['site/**', 'addin/**', 'desktop/**', 'scripts/bundle-font.ps1', 'tests/browser-smoke.mjs', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,6 +16,9 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      - name: Bundle verified Pretendard font
+        shell: pwsh
+        run: ./scripts/bundle-font.ps1
       - name: Bundle local editor for installer test
         shell: powershell
         run: Copy-Item -LiteralPath site -Destination addin/FusionMacroStudio/web -Recurse
@@ -35,6 +38,9 @@ jobs:
           node --check desktop/main.cjs
           node --check desktop/preload.cjs
           node --test desktop/storage.test.cjs desktop/addin-release.test.cjs
+      - name: Bundle verified Pretendard font
+        shell: pwsh
+        run: ./scripts/bundle-font.ps1
       - name: Package Windows editor and bundled add-in
         shell: pwsh
         run: |
@@ -68,6 +74,9 @@ jobs:
         with:
           node-version: '22'
       - run: node --check site/app.js && node --check site/assets.js && node --test site/*.test.js
+      - name: Bundle verified Pretendard font
+        shell: pwsh
+        run: ./scripts/bundle-font.ps1
       - name: Install browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/fms-browser" --no-package-lock playwright@1.51.1
