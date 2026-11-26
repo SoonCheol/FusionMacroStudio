@@ -22,6 +22,14 @@ jobs:
       - run: node --check site/app.js && node --check site/assets.js && node --test site/*.test.js
       - run: python -m unittest discover -s addin/tests && python -m compileall -q addin/FusionMacroStudio
       - run: mkdir -p site/downloads && cd addin && zip -r ../site/downloads/FusionMacroStudio-Addin-Setup.zip FusionMacroStudio Setup.cmd setup.ps1 README.txt -x '*/__pycache__/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FusionMacroStudio-Addin-Setup
+          path: site/downloads/FusionMacroStudio-Addin-Setup.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FusionMacroStudio-web
+          path: site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

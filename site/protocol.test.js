@@ -1,6 +1,10 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {SLOTS,trigger,reports,readBinding,validProfile,blank,sameKey} from './protocol.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {SLOTS,trigger,reports,readBinding,validProfile,blank,sameKey,slotOrder,planChanges} from './protocol.js';
 test('63 unique triggers',()=>{let a=[];for(let l=0;l<3;l++)for(let s of SLOTS)a.push(JSON.stringify(trigger(l,s)));assert.equal(new Set(a).size,63)});
 test('four standard reports',()=>{let b=trigger(0,1),r=reports(0,1,b);assert.deepEqual([...r[0].slice(0,12)],[254,1,1,1,0,0,0,0,0,1,0,104]);assert.deepEqual(r.map(p=>p.length),[64,64,64,64]);assert.deepEqual([...r[2].slice(0,3)],[253,254,255]);let raw=r[0].slice();raw[0]=250;assert.ok(sameKey(raw,b));assert.equal(readBinding(raw).steps[0].code,104)});
 test('invalid profile and slot',()=>{assert.throws(()=>validProfile({}));assert.throws(()=>reports(0,13,trigger(0,1)));assert.equal(validProfile(blank()).layers.length,3)});
 
 test('malformed key profile is rejected',()=>{const p=blank();p.layers[0].bindings[1]={type:'key',steps:[null]};assert.throws(()=>validProfile(p))});
+
+test('default physical numbering follows the right-knob vendor layout',()=>{assert.deepEqual(slotOrder('normal'),Array.from({length:12},(_,i)=>i+1));assert.equal(slotOrder('flip')[0],12);assert.equal(new Set(slotOrder('column')).size,12)});
+function deviceRecords(){return Array.from({length:3},(_,l)=>new Map(SLOTS.map(s=>{let a=reports(l,s,trigger(l,s))[0];a[0]=250;return [s,a]})))}
+test('write plan only includes actual changes, blocks incomplete reads and duplicates',()=>{let before=deviceRecords();let same={layer:0,slot:1,binding:trigger(0,1)};let diff={layer:1,slot:24,binding:{type:'key',steps:[{mods:0,code:41}],delay:0}};assert.deepEqual(planChanges(before,[same,diff]).map(x=>[x.layer,x.slot]),[[1,24]]);assert.throws(()=>planChanges(before,[same,same]));before[0].delete(1);assert.throws(()=>planChanges(before,[diff]))});
