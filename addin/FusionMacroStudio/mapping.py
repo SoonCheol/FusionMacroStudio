@@ -41,13 +41,13 @@ def load_mapping(profile):
             result[(mods, vk)] = (command, slot <= 12)
     return result
 
-def resolve(action, elapsed, threshold=0.5):
+def resolve(action, elapsed, threshold=0.7):
     command, is_key = action
     return "__fms_escape__" if is_key and elapsed >= threshold else command
 
 class PressState:
     """Pure state machine. Consume one physical down/up pair, never two actions."""
-    def __init__(self, threshold=0.5):
+    def __init__(self, threshold=0.7):
         self.threshold = threshold
         self.held = {}
     def down(self, vk, action, now):

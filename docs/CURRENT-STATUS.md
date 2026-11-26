@@ -1,10 +1,10 @@
-# 현재 상태 v0.3.12
+# 현재 상태 v0.3.13
 - 공개 저장소 main, 정적 웹앱으로 변경. 기존 DeckForge 변경 없음.
 - 실물 4열×3행 키, 오른쪽 세로 3노브, 오른쪽 명령 패널, 테마, 패널 너비 조절, 검색/한영, 드래그, 프로필 파일 저장/불러오기, 로컬 원본 PNG 가져오기 구현.
 - 실제 메뉴 자료 959개 배치 / 326 고유 명령 및 영문 1209개 자료 사용. 전체 6MB 카탈로그는 커넥터 미반환으로 로컬 JSON 추가 가져오기만 구현.
 - HID 514C:8842, FF00 usage 1, report 3 64 bytes로 제한. 장치 식별 12/3, 읽기, 변경 슬롯 단일 키 쓰기, 확인 및 재읽기. 읽기 응답 없는 슬롯 쓰기 거부. 실제 장치 테스트 전.
 - 불러온 일반 HID 전체 설정은 표시/백업만, 임의 원본 레코드 복원은 아직 미구현. 원본 아이콘 및 추가 명령은 IndexedDB로 재실행 시 유지. LED 변경 미지원.
-- Fusion 입력 63개 고유 조합 설계, F13~F24 및 modifier 조합 (실기 미검증). 독립 Python 애드인 및 Windows 설정 프로그램 구현: 등록 F13~F24 조합에 대해 Fusion 전경에서만 명령 실행, 500ms 이상 일반 키는 terminateActiveCommand, 시점 제어(오비트/줌/전체 보기). Windows/Fusion 실기 검증 전. 장치가 짧은 펄스만 내보내면 길게 ESC 불가. 다른 키보드의 동일 조합을 구별하지 못함.
+- Fusion 입력 63개 고유 조합 설계, F13~F24 및 modifier 조합 (실기 미검증). 독립 Python 애드인 및 Windows 설정 프로그램 구현: 등록 F13~F24 조합에 대해 Fusion 전경에서만 명령 실행, 700ms 이상 일반 키는 terminateActiveCommand, 시점 제어(오비트/줌/전체 보기). Windows/Fusion 실기 검증 전. 장치가 짧은 펄스만 내보내면 길게 ESC 불가. 다른 키보드의 동일 조합을 구별하지 못함.
 - Pages workflow 등록, 실제 Pages 활성화/배포 결과 별도 확인 필요.
 - 애드인: 프로필 가져오기, 로컬 상태, 설치/제거, Fusion API 명령/설명 및 접근 가능한 원본 PNG 내보내기. Pages workflow에서 설치 ZIP 생성. EXE 아닌 CMD+PowerShell GUI. 다운로드 실물/Pages 배포 및 Windows 실행 확인 전.
 - 다음: 빌드 결과, 실제 설치/실기 입력 테스트, 프로필 전체 안전 복원, 실기 슬롯 배열 확인. API 원본 아이콘은 접근 가능한 경로만 수집; 누락 가능.
@@ -40,3 +40,5 @@
 - v0.3.11: 사용자 Windows 설치 시 name 인수 오류 보고. Fusion manifest의 기본 설명 빈 키를 Windows PowerShell 5.1 ConvertFrom-Json이 처리하지 못하는 경로를 확인. 매니페스트 원본 형식 유지, .NET JavaScriptSerializer로 설치/상태 조회 파싱 변경. Windows PowerShell 5.1 임시 디렉터리 설치/업데이트/백업/인접 애드인 보존 자동 검사 추가, 배포 전 결과 확인 필요. 오류 메시지에 스크립트 위치 추가. 실제 Fusion 설치 재검증 필요. 기존 웹 UI/아이콘/DeckForge 변경 없음. v0.3.10 추가 run 45776351066 Node 22/22, Python 8/8 및 Pages 배포 성공 확인.
 
 - v0.3.12: 사용자 실기 v0.3.11 설치/자동 실행, USB 전체 63 슬롯 읽기·백업, 11개 변경 쓰기 및 전체 재읽기, 프로필 11개 로드 확인. 실제 키 입력으로 DrawPolyline 등 Fusion 이벤트 콜백 도달하나 CommandDefinition.isEnabled 미존재 AttributeError 13회 발생. 공식 API의 isValid/execute만 사용하도록 변경, 성공·실패 로그와 네이티브 명령 모의 회귀 테스트 추가. fireCustomEvent false 로그가 콜백 도달과 함께 나타나므로 재시도하지 않으며 실행 결과를 별도 기록. 명령 실제 동작, ESC, 노브, 복원 및 Bluetooth는 재검증 필요. 원본 UI/아이콘/DeckForge 유지. API: https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_CommandDefinition.htm
+
+- v0.3.13: 사용자 v0.3.12 실기 명령 실행 및 길게 누르기 정상 보고. 요청에 따라 ESC 임계시간을 500→700ms로 소폭 연장(구체 수치는 개발 판단), 웹 프로필 기본값 및 안내, 경계 테스트 동기화. 기존 프로필 재등록 및 장치 쓰기 불필요. 노브·HID·아이콘 변경 없음. 새 임계값 실기 확인 필요. v0.3.12 run 45779558976 validate/Windows 설치 검사/Pages 배포 성공.

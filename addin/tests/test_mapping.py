@@ -8,7 +8,9 @@ class Test(unittest.TestCase):
         self.assertEqual(len({m.trigger(l,s) for l in range(3) for s in m.SLOTS}),63)
     def test_press(self):
         self.assertEqual(m.resolve(("DrawPolyline",True),.1),"DrawPolyline")
-        self.assertEqual(m.resolve(("DrawPolyline",True),.5),"__fms_escape__")
+        self.assertEqual(m.resolve(("DrawPolyline",True),.5),"DrawPolyline")
+        self.assertEqual(m.resolve(("DrawPolyline",True),.699),"DrawPolyline")
+        self.assertEqual(m.resolve(("DrawPolyline",True),.7),"__fms_escape__")
         self.assertEqual(m.resolve(("DrawPolyline",False),2),"DrawPolyline")
     def test_profile(self):
         self.assertEqual(m.load_mapping(profile()),{(0,124):("DrawPolyline",True)})
@@ -33,12 +35,12 @@ class Test(unittest.TestCase):
             with self.assertRaises(ValueError):m.load_mapping(p)
     def test_press_state_once_and_repeat(self):
         p=m.PressState()
-        self.assertTrue(p.down(124,("DrawPolyline",True),10))
-        self.assertTrue(p.down(124,("Other",True),10.1))
-        self.assertEqual(p.tick(10.49,True),[])
-        self.assertEqual(p.tick(10.5,True),["__fms_escape__"])
-        self.assertEqual(p.tick(11,True),[])
-        self.assertEqual(p.up(124,12,True),(True,None))
+        self.assertTrue(p.down(124,("DrawPolyline",True),0))
+        self.assertTrue(p.down(124,("Other",True),.1))
+        self.assertEqual(p.tick(.699,True),[])
+        self.assertEqual(p.tick(.7,True),["__fms_escape__"])
+        self.assertEqual(p.tick(1,True),[])
+        self.assertEqual(p.up(124,2,True),(True,None))
         self.assertTrue(p.down(124,("DrawPolyline",True),13))
         self.assertEqual(p.up(124,13.1,True),(True,"DrawPolyline"))
     def test_knob_and_focus_loss(self):

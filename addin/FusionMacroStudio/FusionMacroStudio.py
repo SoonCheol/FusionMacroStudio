@@ -14,7 +14,7 @@ from .keyboard_hook import Hook, foreground
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.12"
+VERSION = "0.3.13"
 app = None
 handler = None
 event = None
