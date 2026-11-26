@@ -113,3 +113,5 @@
 - 사용자 실기 결과: USB F13~F24 12/12, Ctrl+Alt+Shift F1~F3/1~3 6/6; Bluetooth F13~F24 0/12, 대체 코드 6/6 정상. USB 분리 즉시 Bluetooth 자동 전환 사용자 확인. 별도 웹 2차 시험 bluetooth-test.html?phase=2: Ctrl+Alt+Shift F1~F6 및 숫자 0~9 전체 16단계, USB 분리 감지 후 자동 무선 기록. 이전 시험 복원 저널과 호환하며 저장된 시험 종류에 맞춰 복원. 신규 키 실기 확인 전 본 명령 체계 변경 없음.
 
 - CI 45862675322: Windows/desktop 성공, Chromium 실패(browser-smoke.mjs:244). 모의 navigator.hid.addEventListener가 connect/disconnect를 동일 Set에 등록하여 분리 시 재연결 콜백까지 호출한 결함 수정. 이벤트별 분리, 모의 분리 시 opened=false. 실제 시험 코드/복원 및 분리 차단 로직은 변경 없음. 새 CI 대기.
+
+- CI 45863643644 성공. 사용자 2차 실기: USB 및 BT에서 Ctrl+Alt+Shift F1~F6 6/6, 숫자 0~9 10/10 정상. v0.5.0 공통 코드 인코더/애드인 해석기 추가. 신규 일반/시점/노브 쌍/누름 감지 배정은 공통 규격, 기존 코드 해석 유지. legacy hold-pan/vertical 및 로컬 구형 일반 trigger 유지. 고정 코드표 변경 없음. 기존 키보드/프로필 자동 변환 없음. JS/Python 교차 검증 추가. Windows Fusion 실제 실행·노브 반응·키 누름 검증 필요.

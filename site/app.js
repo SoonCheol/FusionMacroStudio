@@ -1,5 +1,5 @@
 import {Keypad,SLOTS,blank,trigger,validProfile,readBinding,sameKey,reports,slotOrder,completeRead,parseBackup,profileChanges} from './protocol.js';
-import {commandBinding,directIndex,validateCodes,HOLD_MARKERS,FAST_CAMERA,KNOB_MARKERS,pairInfo,pairBinding,pairEligible,orbitBase,orbitMode,orbitVariant} from './direct-codes.js';
+import {commonCommandBinding as commandBinding,directIndex,validateCodes,HOLD_MARKERS,FAST_CAMERA,KNOB_MARKERS,pairInfo,commonPairBinding as pairBinding,pairEligible,orbitBase,orbitMode,orbitVariant} from './direct-codes.js';
 import {putAsset,loadAssets} from './assets.js';
 import {iconUrl,iconKind,referenceIcons} from './command-icons.js';
 import {setWordLabel,fitLabels,watchLabels} from './word-labels.js';
@@ -129,7 +129,7 @@ function decorate(el,slot,held=false){el.classList.toggle('selected',selected===
 function heldPreview(l,slot,mode){
  if(!viewReady)return null;const pair=pairInfo(l.bindings[slot],codeIds);if(pair)return cameraMeta(pair.held);if(!HOLD_MARKERS.includes(mode))return null;
  const original=l.fusion[slot]?.id;
- if(!FAST_CAMERA.includes(orbitBase(original)||original)||![2,5].includes(l.bindings[slot]?.steps?.length))return null;
+ if(!FAST_CAMERA.includes(orbitBase(original)||original)||![2,3,5,6].includes(l.bindings[slot]?.steps?.length))return null;
  let id=orbitBase(original)||original;
  if(mode==='__fms_hold_pan__'&&/^__fms_orbit_(left|right|up|down)__$/.test(id))id=id.replace('_orbit_','_pan_');
  if(mode==='__fms_hold_vertical__')id=({'__fms_orbit_left__':'__fms_orbit_up__','__fms_orbit_right__':'__fms_orbit_down__','__fms_pan_left__':'__fms_pan_up__','__fms_pan_right__':'__fms_pan_down__'})[id]||id;
@@ -259,7 +259,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.4.12',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.5.0',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;

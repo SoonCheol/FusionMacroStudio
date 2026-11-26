@@ -31,6 +31,7 @@ export function pairBinding(knob,normal,held,ids=FAST_CAMERA){
  return {type:'key',delay:0,steps:[{mods:2,code:110+knob},...digits.map(code=>({mods:1,code}))]};
 }
 export function pairInfo(b,ids=FAST_CAMERA){
+ const commonPair=commonPairInfo(b,ids);if(commonPair)return commonPair;
  const s=b?.steps;
  if(b?.type!=='key'||b.delay!==0||![4,14].includes(s?.length)||s[0]?.mods!==2||s[0].code<110||s[0].code>112)return null;
  const digits=s.slice(1).map(x=>x?.mods===1?PAIR_DIGITS.indexOf(x.code):-1);
@@ -53,6 +54,7 @@ export function commandBinding(index,ids){
 }
 export function directIndex(b,ids=[]){
  const pair=pairInfo(b,ids);if(pair){const i=ids.indexOf(pair.normal);return i>=0?i:null}
+ const commonId=commonIndex(b,ids);if(commonId!==null)return commonId;
  if(b?.type==='key'&&b.delay===0){
   const s=b.steps;
   let id;
@@ -64,4 +66,66 @@ export function directIndex(b,ids=[]){
  let index=0;
  for(const s of b.steps.slice(1)){if(!Number.isInteger(s.code)||s.code<104||s.code>114)return null;index=index*11+s.code-104}
  return index;
+}
+
+// Common USB/Bluetooth wire format. All symbols use Ctrl+Alt+Shift.
+// Existing registry indices are unchanged; 99999 is the empty pair sentinel.
+export const COMMON_CAPACITY=100000;
+const COMMON_NULL=99999;
+export const COMMON_CAMERA=[...FAST_CAMERA,...['down','left','right','up'].flatMap(d=>['constrained','free'].map(m=>'__fms_orbit_'+d+'_'+m+'__'))];
+const decimalCode=d=>d===0?39:29+d;
+const decimalDigit=c=>c===39?0:c>=30&&c<=38?c-29:-1;
+const decimal=(n,len)=>String(n).padStart(len,'0').split('').map(d=>decimalCode(Number(d)));
+const common=(prefix,digits=[])=>({type:'key',delay:0,steps:[prefix,...digits].map(code=>({mods:7,code}))});
+export function commonCommandBinding(index,ids){
+ if(!Number.isInteger(index)||index<0||index>=COMMON_CAPACITY||!ids[index])throw Error('명령 코드 범위 오류');
+ const id=ids[index],k=KNOB_MARKERS.indexOf(id),c=COMMON_CAMERA.indexOf(id);
+ if(k>=0)return common(61+k);
+ // Older explicit hold-pan/vertical markers remain legacy until the pair migration.
+ if(HOLD_MARKERS.includes(id))return commandBinding(index,ids);
+ if(c>=0)return common(60,decimal(c,2));
+ return common(58,decimal(index,5));
+}
+export function commonPairBinding(knob,normal,held,ids=FAST_CAMERA){
+ if(!Number.isInteger(knob)||knob<0||knob>2||!pairEligible(normal,ids)||!pairEligible(held,ids))throw Error('지원하지 않는 노브 회전 명령');
+ const n=COMMON_CAMERA.length+1,a=normal===null?n-1:COMMON_CAMERA.indexOf(normal),b=held===null?n-1:COMMON_CAMERA.indexOf(held);
+ if(a>=0&&b>=0)return common(59,[decimalCode(knob),...decimal(a*n+b,3)]);
+ const index=id=>id===null?COMMON_NULL:ids.indexOf(id);
+ const x=index(normal),y=index(held);
+ if(x>=COMMON_NULL&&normal!==null||y>=COMMON_NULL&&held!==null)throw Error('노브 코드 범위 오류');
+ return common(59,[decimalCode(knob+3),...decimal(x,5),...decimal(y,5)]);
+}
+function commonDigits(s){
+ if(!s?.length||s.some(x=>x?.mods!==7))return null;
+ const d=s.slice(1).map(x=>decimalDigit(x.code));return d.includes(-1)?null:d;
+}
+export function commonPairInfo(b,ids=FAST_CAMERA){
+ const s=b?.steps;if(b?.type!=='key'||b.delay!==0||s?.[0]?.code!==59)return null;
+ const d=commonDigits(s);if(!d)return null;
+ const decode=a=>a.reduce((n,x)=>n*10+x,0),kind=d[0],n=COMMON_CAMERA.length+1;
+ if(kind>=0&&kind<3&&d.length===4){
+  const v=decode(d.slice(1));if(v>=n*n)return null;
+  const normal=COMMON_CAMERA[Math.floor(v/n)]||null,held=COMMON_CAMERA[v%n]||null;
+  if(!pairEligible(normal,ids)||!pairEligible(held,ids))return null;
+  return {knob:kind,normal,held};
+ }
+ if(kind>=3&&kind<6&&d.length===11){
+  const a=decode(d.slice(1,6)),c=decode(d.slice(6,11));
+  if((a!==COMMON_NULL&&!ids[a])||(c!==COMMON_NULL&&!ids[c]))return null;
+  const normal=a===COMMON_NULL?null:ids[a],held=c===COMMON_NULL?null:ids[c];
+  if(!pairEligible(normal,ids)||!pairEligible(held,ids))return null;
+  return {knob:kind-3,normal,held};
+ }
+ return null;
+}
+export function commonIndex(b,ids=[]){
+ const s=b?.steps;if(b?.type!=='key'||b.delay!==0)return null;
+ const d=commonDigits(s);if(!d)return null;
+ const p=s[0].code,n=d.reduce((v,x)=>v*10+x,0);
+ let id;
+ if(p===58&&d.length===5)return n;
+ if(p===60&&d.length===2)id=COMMON_CAMERA[n];
+ if(p>=61&&p<=63&&!d.length)id=KNOB_MARKERS[p-61];
+ if(id){const i=ids.indexOf(id);return i>=0?i:null}
+ return null;
 }

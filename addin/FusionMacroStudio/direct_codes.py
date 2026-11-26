@@ -7,6 +7,10 @@ CAPACITY = 11**4
 FAST_CAMERA = ["__fms_fit__","__fms_orbit_down__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_pan_down__","__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_zoom_in__","__fms_zoom_out__"]
 HOLD_MARKERS = {133: "__fms_hold_pan__", 134: "__fms_hold_vertical__", **{127+i: f"__fms_knob_hold_{i+1}__" for i in range(3)}}
 PAIR_DIGITS = (124,125,126,130,131,132)
+COMMON_CAMERA = FAST_CAMERA + [f'__fms_orbit_{d}_{mode}__' for d in ('down','left','right','up') for mode in ('constrained','free')]
+COMMON_NULL = 99999
+COMMON_KEYS = set(range(0x70,0x76)) | set(range(0x30,0x3a))
+COMMON_MARKERS = {0x73+i:127+i for i in range(3)}
 # Device trace: marker up precedes first decoded rotation by 71–72 ms.
 PAIR_START_GRACE = .30
 PAIR_IDLE_GRACE = .50
@@ -41,12 +45,17 @@ class DirectInput:
         self.pair_held=False
         self.pair_emulated=False
         self.last_pair_mode=None
+        self.common_frame=None
+        self.common_held=set()
+        self.common_markers=set()
+        self.common_pair_state={}
     def reset(self):
         self.cancel()
         self.markers.clear()
         self.marker_edges.clear()
         self.pair_grace.clear()
         self.pair_physical.clear()
+        self.common_markers.clear()
         self.last_pair_mode=None
     def route(self,cmd,now):
         if self.markers:
@@ -64,6 +73,8 @@ class DirectInput:
         self.pair=None
         self.pair_held=False
         self.pair_emulated=False
+        self.common_frame=None
+        self.common_pair_state={}
     def tick(self,now,active):
         if not active:
             self.reset()
@@ -77,6 +88,8 @@ class DirectInput:
                 self.cancel()
     def down(self,vk,mods,now,active):
         self.tick(now,active)
+        if vk in COMMON_KEYS:
+            return self.common_down(vk,mods,now,active)
         if vk in self.marker_edges:
             return True
         if active and mods==2 and vk in HOLD_MARKERS:
@@ -125,6 +138,8 @@ class DirectInput:
     def up(self,vk,now,active):
         self.last_pair_mode=None
         self.tick(now,active)
+        if vk in COMMON_KEYS:
+            return self.common_up(vk,now,active)
         if vk in self.marker_edges:
             self.marker_edges.remove(vk)
             self.markers.pop(vk,None)
@@ -183,3 +198,86 @@ class DirectInput:
             index=index*11+digit
         self.cancel()
         return True,self.route(self.ids[index],now) if index<len(self.ids) else None
+
+    def marker_key(self,vk):
+        return COMMON_MARKERS.get(vk,vk)
+    def common_down(self,vk,mods,now,active):
+        if vk in self.common_markers or vk in self.common_held:
+            return True
+        if active and mods==7 and vk in COMMON_MARKERS:
+            self.common_markers.add(vk)
+            return self.down(COMMON_MARKERS[vk],2,now,active)
+        if not active or mods!=7:
+            self.cancel()
+            return False
+        if vk in (0x70,0x71,0x72):
+            overlap=bool(self.common_held or self.held)
+            self.cancel()
+            self.common_held.add(vk)
+            if not overlap:
+                self.common_frame=[vk]
+                if vk==0x71:
+                    self.common_pair_state={k:(127+k in self.markers,now<=self.pair_grace.get(127+k,-1)) for k in range(3)}
+        elif 0x30<=vk<=0x39 and self.common_frame is not None:
+            overlap=bool(self.common_held or self.held)
+            self.common_held.add(vk)
+            if overlap:
+                self.cancel()
+            else:
+                self.common_frame.append(vk-0x30)
+        else:
+            self.cancel()
+            return False
+        self.deadline=now+self.timeout
+        return True
+    def common_up(self,vk,now,active):
+        if vk in self.common_markers:
+            self.common_markers.remove(vk)
+            return self.up(COMMON_MARKERS[vk],now,active)
+        if vk not in self.common_held:
+            return False,None
+        self.common_held.remove(vk)
+        if not active or self.common_frame is None or self.common_held:
+            return True,None
+        prefix,*digits=self.common_frame
+        self.deadline=now+self.timeout
+        def decode(values):
+            n=0
+            for d in values:n=n*10+d
+            return n
+        if prefix==0x70:
+            if len(digits)<5:return True,None
+            i=decode(digits)
+            self.cancel()
+            return True,self.route(self.ids[i],now) if i<len(self.ids) and self.ids[i] not in HOLD_MARKERS.values() else None
+        if prefix==0x72:
+            if len(digits)<2:return True,None
+            i=decode(digits)
+            self.cancel()
+            return True,self.route(COMMON_CAMERA[i],now) if i<len(COMMON_CAMERA) and COMMON_CAMERA[i] in self.ids else None
+        if not digits:return True,None
+        kind=digits[0]
+        if kind>=6:
+            self.cancel()
+            return True,None
+        extended=kind>=3
+        if len(digits)<(11 if extended else 4):return True,None
+        knob=kind%3
+        physical,grace=self.common_pair_state.get(knob,(False,False))
+        held=physical or grace
+        emulated=grace and not physical
+        self.cancel()
+        if extended:
+            a,b=decode(digits[1:6]),decode(digits[6:11])
+            if any(i!=COMMON_NULL and (i>=len(self.ids) or self.ids[i] in HOLD_MARKERS.values()) for i in (a,b)):return True,None
+            i=b if held else a
+            cmd=self.ids[i] if i<len(self.ids) else None
+        else:
+            n=len(COMMON_CAMERA)+1
+            v=decode(digits[1:])
+            if v>=n*n:return True,None
+            i=v%n if held else v//n
+            if i<len(COMMON_CAMERA) and COMMON_CAMERA[i] not in self.ids:return True,None
+            cmd=COMMON_CAMERA[i] if i<len(COMMON_CAMERA) else None
+        self.finish_pair(127+knob,held,emulated,now)
+        return True,cmd

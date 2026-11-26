@@ -5,7 +5,7 @@ import os
 import threading
 import time
 from .mapping import PressState, KnobTrace
-from .direct_codes import DirectInput
+from .direct_codes import DirectInput, COMMON_KEYS
 
 U = c.WinDLL("user32", use_last_error=True)
 K = c.WinDLL("kernel32", use_last_error=True)
@@ -69,10 +69,10 @@ class Hook:
             if code >= 0:
                 k = c.cast(data,c.POINTER(KBD)).contents
                 vk = k.vkCode
-                if msg in (0x100,0x104) and not 0x7c <= vk <= 0x87 and vk not in (0x10,0x11,0x12,0x5b,0x5c,0xa0,0xa1,0xa2,0xa3,0xa4,0xa5):
+                if msg in (0x100,0x104) and not 0x7c <= vk <= 0x87 and vk not in COMMON_KEYS and vk not in (0x10,0x11,0x12,0x5b,0x5c,0xa0,0xa1,0xa2,0xa3,0xa4,0xa5):
                     with self.lock:
                         self.direct.cancel()
-                if 0x7c <= vk <= 0x87 and not k.flags & 0x10:
+                if (0x7c <= vk <= 0x87 or vk in COMMON_KEYS) and not k.flags & 0x10:
                     with self.lock:
                         active = foreground()
                         if not active:
@@ -80,17 +80,20 @@ class Hook:
                         now = time.monotonic()
                         if msg in (0x100,0x104):
                             mods = modifiers() if active else 0
-                            marker_before=vk in self.direct.marker_edges
+                            marker_vk=self.direct.marker_key(vk)
+                            marker_before=marker_vk in self.direct.marker_edges
                             if self.direct.down(vk,mods,now,active):
-                                if not marker_before and vk in self.direct.markers:
-                                    self.trace.direct_event(self.direct.markers[vk],'down',active,now)
+                                if not marker_before and marker_vk in self.direct.markers:
+                                    self.trace.direct_event(self.direct.markers[marker_vk],'down',active,now)
                                 return 1
+                            if vk in COMMON_KEYS:
+                                return U.CallNextHookEx(None,code,msg,data)
                             self.trace.observe(vk,mods,True,active,self.mapping,now)
                             action = self.mapping.get((mods,vk)) if active else None
                             if self.press.down(vk,action,now):
                                 return 1
                         elif msg in (0x101,0x105):
-                            marker=self.direct.markers.get(vk)
+                            marker=self.direct.markers.get(self.direct.marker_key(vk))
                             consume, cmd = self.direct.up(vk,now,active)
                             if consume:
                                 if marker:
@@ -100,6 +103,8 @@ class Hook:
                                         self.trace.direct_event(cmd,'decoded'+(' · '+self.direct.last_pair_mode if self.direct.last_pair_mode else ''),active,now)
                                     self.dispatch(cmd,self.generation)
                                 return 1
+                            if vk in COMMON_KEYS:
+                                return U.CallNextHookEx(None,code,msg,data)
                             self.trace.observe(vk,0,False,active,self.mapping,now)
                             consume, cmd = self.press.up(vk,now,active)
                             if cmd:

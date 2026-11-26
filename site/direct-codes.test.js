@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {CAPACITY,validateCodes,directBinding,directIndex,commandBinding,FAST_CAMERA,HOLD_MARKERS,KNOB_MARKERS,pairBinding,pairInfo} from './direct-codes.js';
+import {CAPACITY,validateCodes,directBinding,directIndex,commandBinding,FAST_CAMERA,HOLD_MARKERS,KNOB_MARKERS,pairBinding,pairInfo,COMMON_CAMERA,COMMON_CAPACITY,commonCommandBinding,commonPairBinding} from './direct-codes.js';
 import {reports,readBinding,sameBinding,blank,profileChanges} from './protocol.js';
 const url=new URL('./data/command-codes.json',import.meta.url),ids=validateCodes(JSON.parse(readFileSync(url,'utf8')));
 test('fixed registry, all 14641 code payloads roundtrip and no legacy modifiers',()=>{
@@ -48,3 +48,34 @@ test('extended pair preserves arbitrary fixed commands and camera pair remains s
 });
 
 test('explicit orbit mode variants retain registry identity in direct and paired writes',()=>{for(const direction of ['down','left','right','up'])for(const mode of ['constrained','free']){const id='__fms_orbit_'+direction+'_'+mode+'__',i=ids.indexOf(id);assert.ok(i>=1230);const b=commandBinding(i,ids);assert.equal(directIndex(b,ids),i);const pair=pairBinding(2,id,'__fms_pan_left__',ids);assert.deepEqual(pairInfo(pair,ids),{knob:2,normal:id,held:'__fms_pan_left__'});assert.ok(pair.steps.length<=18)}});
+
+test('common codes preserve registry and roundtrip through HID and Python',()=>{
+ const vectors=[],add=(b,id)=>vectors.push({steps:b.steps,id});
+ for(let i=0;i<ids.length;i++){
+  const b=commonCommandBinding(i,ids),raw=reports(0,1,b)[0];raw[0]=250;assert.equal(directIndex(readBinding(raw),ids),i);assert.ok(sameBinding(raw,b));
+  if(![...HOLD_MARKERS,...KNOB_MARKERS].includes(ids[i])){assert.ok(b.steps.every(s=>s.mods===7));add(b,ids[i]);}
+ }
+ for(let k=0;k<3;k++)for(const normal of [...COMMON_CAMERA,null])for(const held of [...COMMON_CAMERA,null]){
+  const b=commonPairBinding(k,normal,held,ids);assert.deepEqual(pairInfo(b,ids),{knob:k,normal,held});assert.equal(b.steps.length,5);add(b,normal);
+ }
+ const b=commonPairBinding(1,'DrawPolyline','__fms_pivot_origin__',ids);assert.equal(b.steps.length,12);assert.deepEqual(pairInfo(b,ids),{knob:1,normal:'DrawPolyline',held:'__fms_pivot_origin__'});add(b,'DrawPolyline');
+ const script=`import importlib.util,json,sys
+spec=importlib.util.spec_from_file_location("direct",sys.argv[1]);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+ids=m.load_codes(sys.argv[2]);d=m.DirectInput(ids);t=0
+def tap(s):
+ global t
+ c=s["code"];v=c+54 if 58<=c<=63 else 48 if c==39 else c+19
+ assert d.down(v,s["mods"],t,True),(v,s)
+ t+=.01
+ consumed,cmd=d.up(v,t,True)
+ t+=.01
+ assert consumed
+ return cmd
+for x in json.load(sys.stdin):
+ out=[cmd for s in x["steps"] if (cmd:=tap(s)) is not None]
+ assert out==([x["id"]] if x["id"] else []),(x,out)
+print("OK")
+`;
+ const r=spawnSync(process.env.PYTHON||'python3',['-c',script,fileURLToPath(new URL('../addin/FusionMacroStudio/direct_codes.py',import.meta.url)),fileURLToPath(url)],{input:JSON.stringify(vectors),encoding:'utf8',maxBuffer:4*1024*1024});
+ assert.ifError(r.error);assert.equal(r.status,0,r.stderr);assert.equal(r.stdout.trim(),'OK');
+});
