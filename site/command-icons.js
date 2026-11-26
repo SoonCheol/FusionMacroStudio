@@ -183,6 +183,39 @@ Object.assign(referenceBodies,{
  conic:()=>sketchLine("M4 27 Q16 -17 28 27",1.65)+nodes([4,27],[16,5],[28,27]),
  point:()=>sketchLine("M3 16 H29 M16 3 V29",1.65)
 });
+
+Object.assign(referenceBodies,{
+ extrudeSolid:()=>path('M3 8 L10 2 H29 V24 L22 30 H3Z',ink,1.25,'#58a9db')+path('M3 8 H22 V30 H3Z','#307aa5',1.2,'#89cbec')+path('M22 8 L29 2 V24 L22 30Z',ink,1,'#337faa')+path('M3 8 L10 2 H29 L22 8Z',ink,1,'#b4e0f3'),
+ revolveSolid:()=>cyl(16,12,13,12)+path('M4 9 Q16 2 28 9',ink,1.5)+path('M4 9 H28',blue,1.5)+arrow(6,25,12,29,blue),
+ sweepSolid:()=>path('M3 23 H15 V12 H29 V3 H12 V13 H3Z',ink,1.3,'#58addb')+path('M3 23 H13 V30 H3Z',ink,1.2,'#d3d8da')+path('M13 23 L20 16 H29 V23 L20 30 H13Z',ink,1.2,'#d8dde0'),
+ loftSolid:()=>path('M3 5 H29 Q27 18 21 27 H11 Q5 18 3 5Z',ink,1.3,'#6cb9e5')+path('M3 5 Q16 -1 29 5 Q16 12 3 5Z',ink,1.1,'#bee5f5')+circle(16,25,4,'#e3e6e8',ink,1.1),
+ ribSolid:()=>path('M3 3 V28 H29Z',ink,1.3,'#d5dbdf')+path('M3 3 L12 7 29 24 L29 28 L3 11Z',ink,1.15,'#5faedf')+line(3,3,3,28,blue,2),
+ webSolid:()=>rect(3,3,26,26,'#b5bec5',ink,.2)+rect(7,7,18,18,'#e8edf0',ink,.1)+path('M9 22 L16 9 L24 22 M9 16 H23',blue,2.6),
+ embossSolid:()=>path('M2 12 Q16 0 30 12 L23 30 Q16 18 9 30Z',ink,1.2,'#e4e7ea')+path('M5 11 L14 4 19 10 26 5 29 11 19 18 14 12 9 16Z',blue,1.2,'#7bbce1'),
+ bossSolid:()=>path('M6 30 V12 Q3 10 3 6 Q3 1 10 1 H22 Q29 1 29 6 Q29 10 26 12 V30 H20 V15 H12 V30Z',ink,1.2,'#83c8eb')+circle(16,7,5,'#dfe7e9',ink,1.3)+path('M12 13 V28 M20 13 V28',blue,1.5),
+ snapSolid:()=>path('M4 30 V4 H15 V11 H10 V19 H17 V30Z',ink,1.2,'#b9c2c9')+path('M20 30 V14 H14 V8 L24 2 H29 V30Z',ink,1.2,'#62b1df'),
+ restSolid:()=>path('M3 29 V22 H12 V13 H21 V4 H30 V12 H23 V21 H14 V29Z',ink,1.2,'#75bde6')+path('M3 22 H12 V13 H21 V4',blue,2.2)+line(13,29,29,29,ink),
+ lipSolid:()=>path('M3 5 H16 V11 H23 V17 H29 V27 H13 V21 H7 V15 H3Z',ink,1.2,'#82c5e8')+path('M3 5 H16 V11 H23 V17 H29',blue,2),
+ boxSolid:()=>path('M3 9 L10 2 H29 V23 L22 30 H3Z',ink,1.2,'#68b6e4')+path('M3 9 H22 V30 H3Z',blue,1,'#8ccdef')+path('M22 9 L29 2 V23 L22 30Z',ink,1,'#3990be')+path('M3 9 L10 2 H29 L22 9Z',ink,1,'#bfe5f6'),
+ cylinderSolid:()=>cyl(16,6,13,20),
+ sphereSolid:()=>circle(16,16,13,'url(#ball)',blue,1.2),
+ torusSolid:()=>'<ellipse cx="16" cy="16" rx="14" ry="11" fill="#69b7e3" stroke="'+ink+'" stroke-width="1.2"/><ellipse cx="16" cy="16" rx="5.6" ry="4.1" fill="#edf4f8" stroke="'+ink+'" stroke-width="1.1"/>'+path('M3 15 Q16 5 29 15','#b9e4f4',1.5),
+ coilSolid:()=>[0,1,2,3].map(i=>path('M5 '+(5+i*6)+' C28 '+(i*6)+' 33 '+(10+i*6)+' 5 '+(12+i*6),ink,4,'none')+path('M5 '+(5+i*6)+' C28 '+(i*6)+' 33 '+(10+i*6)+' 5 '+(12+i*6),'#71c1ed',2.8)).join(''),
+ pipeSolid:()=>'<g transform="rotate(-29 16 16)">'+cyl(16,9,8,14)+circle(16,9,3.7,'#d8edf4',blue,1.1)+'</g>',
+ pressSolid:()=>path('M3 5 L13 2 V26 L3 30Z',ink,1.2,'#e3e6e8')+path('M13 2 L23 5 V29 L13 26Z',ink,1.2,'#66b8e2')+arrow(19,16,30,16,blue),
+ filletSolid:()=>path('M3 3 H16 Q29 3 29 16 V29 H3Z',ink,1.3,'#d4dadd')+path('M16 3 Q29 3 29 16 H21 Q21 11 16 11Z',blue,1.4,'#74c1ed')+path('M3 3 H16 V11 H3Z',ink,1,'#a8c8d9'),
+ chamferSolid:()=>path('M3 3 H16 L29 16 V29 H3Z',ink,1.3,'#d4dadd')+path('M16 3 L29 16 H19 L10 8Z',blue,1.4,'#65b8e5')+path('M3 3 H16 L10 8 H3Z',ink,1,'#b2d4e7'),
+ shellSolid:()=>rect(3,3,26,26,'#c7d0d7',ink,.3)+rect(9,9,14,14,'#2c4d60',ink,.2)+path('M3 3 H29 V9 H9 V29 H3Z',blue,1.3,'#6fbde7'),
+ draftSolid:()=>path('M3 29 L7 8 L16 3 L27 10 L29 29Z',ink,1.3,'#d2d8dd')+path('M7 8 L16 3 L27 10 L23 29 H3Z',blue,1.3,'#6bb9e4')+line(16,3,19,29,ink),
+ scaleSolid:()=>rect(3,3,26,26,'#75bde7',ink,.2)+rect(7,12,15,15,'#e4e7e9',ink,.2),
+ combineSolid:()=>rect(3,11,17,18,'#58aadd',ink,.4)+rect(12,3,17,18,'#83c6e9',ink,.4)+rect(12,11,8,10,'#a7d9ef',blue,.3),
+ offsetSolid:()=>rect(4,7,21,21,'#cdd5da',ink,.2)+rect(9,3,21,21,'none',blue,.2)+rect(9,3,21,4,'#78c2e8',blue,.2),
+ replaceSolid:()=>rect(3,4,26,13,'#7ac3e8',ink,.3)+rect(3,22,26,7,'#ccd5dc',ink,.3)+arrow(10,23,10,10,blue)+arrow(22,23,22,10,blue),
+ splitFaceSolid:()=>rect(3,3,26,15,'#72c1e9',ink,.2)+rect(3,20,26,9,'#d9dfe3',ink,.2)+line(3,18,29,18,blue,1.8),
+ splitBodySolid:()=>path('M3 5 L25 2 29 7 V14 H3Z',ink,1.2,'#75c1e9')+path('M3 20 H29 V25 L25 30 H3Z',ink,1.2,'#c8d3da')+line(3,17,29,17,blue,2),
+ silhouetteSolid:()=>circle(16,16,13,'#bfcbd3',ink,1.25)+path('M3 14 Q16 23 29 14 Q28 25 16 25 Q4 25 3 14Z',blue,1.3,'#71bce7'),
+ alignSolid:()=>rect(3,3,12,8,'#dce3e7',ink,.1)+rect(3,17,26,12,'#75c0e7',ink,.2)+dash('M3 14 H29',blue)
+});
 export const referenceIcons=Object.freeze({
   "DrawPolyline": {
     "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/polyline.png",
@@ -379,6 +412,186 @@ export const referenceIcons=Object.freeze({
   "FusionMoveCommand": {
     "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/common/move.png",
     "kind": "move",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "Extrude": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/extrude.png",
+    "kind": "extrudeSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "Revolve": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/revolve.png",
+    "kind": "revolveSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "Sweep": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/sweep.png",
+    "kind": "sweepSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "SolidLoft": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/loft.png",
+    "kind": "loftSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionRibCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/rib.png",
+    "kind": "ribSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionWebCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/web.png",
+    "kind": "webSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "EmbossCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/emboss.png",
+    "kind": "embossSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionBossCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/boss.png",
+    "kind": "bossSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionSnapFitCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/snap-fit.png",
+    "kind": "snapSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionRestCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/rest.png",
+    "kind": "restSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionLipCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/lip-groove.png",
+    "kind": "lipSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "PrimitiveBox": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/box.png",
+    "kind": "boxSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "PrimitiveCylinder": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/cylinder.png",
+    "kind": "cylinderSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "PrimitiveSphere": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/sphere.png",
+    "kind": "sphereSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "PrimitiveTorus": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/torus.png",
+    "kind": "torusSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "PrimitiveCoil": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/coil.png",
+    "kind": "coilSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "PrimitivePipe": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/pipe.png",
+    "kind": "pipeSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionPressPullCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/press-pull.png",
+    "kind": "pressSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionFilletEdgesCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/fillet.png",
+    "kind": "filletSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionChamferCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/chamfer.png",
+    "kind": "chamferSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionShellBodyCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/shell.png",
+    "kind": "shellSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionDraftCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/draft.png",
+    "kind": "draftSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ModifyScale": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/scale.png",
+    "kind": "scaleSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionCombineCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/combine.png",
+    "kind": "combineSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionOffsetFacesCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/offset-faces.png",
+    "kind": "offsetSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionReplaceFaceCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/replace-face.png",
+    "kind": "replaceSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionSplitFaceCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/split-face.png",
+    "kind": "splitFaceSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionSplitBodyCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/split-body.png",
+    "kind": "splitBodySolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionPartingLineSplitCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/sld/silhouette-split.png",
+    "kind": "silhouetteSolid",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "AlignCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-Model/images/icon/common/align.png",
+    "kind": "alignSolid",
     "reference": "official-help-image-opened",
     "review": "redrawn-reference-not-pixel-verified"
   }
