@@ -238,7 +238,10 @@ try{
  },includeExtended);
  await emitProbe(true);
  await page.locator('#wizardNext').filter({hasText:'블루투스 연결 완료'}).waitFor();
+ assert.equal(await page.locator('#wizardNext').isDisabled(),true);
+ assert.match(await page.locator('#wizardMessage').innerText(),/USB 케이블을 반드시 뽑으세요/);
  await page.evaluate(()=>window.fakeDisconnect());
+ assert.equal(await page.locator('#wizardNext').isEnabled(),true);
  await page.locator('#wizardNext').click();
  await page.locator('#wizardCapture').waitFor();
  await emitProbe(false);

@@ -1,4 +1,4 @@
-import {SLOTS,completeRead,sameBinding,restorable,reports} from './protocol.js';
+import {SLOTS,completeRead,sameBinding,restorable,reports,supported} from './protocol.js';
 import {inputSignature,probeBinding} from './input-comparison.js';
 const KEY='fusion-macro-studio.bt-wizard-recovery-v1';
 export const empty={type:'key',delay:0,steps:[{mods:0,code:0}]};
@@ -47,14 +47,14 @@ export function verifyTarget(raw,j){
 }
 export function setupBluetoothWizard({device,ready,layer,profile,onChange,log}){
  const $=id=>document.getElementById(id),dialog=$('bluetoothWizard'),message=$('wizardMessage'),next=$('wizardNext'),close=$('wizardClose'),cancel=$('wizardCancel'),area=$('wizardCapture'),result=$('wizardResult');
- let journal=null,stage='idle',working=false,events=[],usb=[],bt=[],timer=null,idle=null,reading=false;
+ let journal=null,stage='idle',working=false,events=[],usb=[],bt=[],timer=null,idle=null,reading=false,usbRemoved=false;
  const say=s=>message.textContent=s;
  const target=()=>journal?'레이어 '+(journal.layer+1)+' · K'+journal.slot:'';
  const load=()=>{const raw=localStorage.getItem(KEY);return raw?validateJournal(JSON.parse(raw)):null};
  function save(j){const value=JSON.stringify(j);localStorage.setItem(KEY,value);if(localStorage.getItem(KEY)!==value)throw Error('복원 기록 저장 실패');journal=j}
  function clear(){localStorage.removeItem(KEY);journal=null}
  function ui(s,label,msg){
-  stage=s;say(msg);next.textContent=label;next.disabled=working||s==='usb'||s==='bt';next.hidden=s==='done';close.hidden=!!journal||working;cancel.hidden=!journal||working||s==='restore';cancel.disabled=working;
+  stage=s;dialog.dataset.stage=s;say(msg);next.textContent=label;next.disabled=working||s==='usb'||s==='bt'||((s==='switch'||s==='retry-bt')&&!usbRemoved);next.hidden=s==='done';close.hidden=!!journal||working;cancel.hidden=!journal||working||s==='restore';cancel.disabled=working;
   area.hidden=!(s==='usb'||s==='bt');
  }
  function stopCapture(){reading=false;clearTimeout(timer);clearTimeout(idle);timer=idle=null}
@@ -64,11 +64,11 @@ export function setupBluetoothWizard({device,ready,layer,profile,onChange,log}){
  }
  function captureDone(){
   if(!reading)return;stopCapture();const prior=stage;
-  if(prior==='usb'){usb=events.slice();const baseline=summarizeCapture(usb);if(!baseline.extended.matched&&!baseline.alternate.matched){ui('retry-usb','다시 기록',target()+'\n시험 키의 입력을 받지 못했습니다. 실제 레이어를 맞추고 다시 눌러 주세요.');return}ui('switch','블루투스 연결 완료','USB 케이블을 분리하고 블루투스로 연결하세요.\n연결 후 아래 버튼을 누르세요.')}
+  if(prior==='usb'){usb=events.slice();const baseline=summarizeCapture(usb);if(!baseline.extended.matched&&!baseline.alternate.matched){ui('retry-usb','다시 기록',target()+'\n시험 키의 입력을 받지 못했습니다. 실제 레이어를 맞추고 다시 눌러 주세요.');return}ui('switch','블루투스 연결 완료','2단계 · 블루투스 시험\nUSB 케이블을 반드시 뽑으세요.\n블루투스로 연결한 다음 아래 버튼을 누르세요.')}
   else{bt=events.slice();showResults();ui('restore','USB 연결 및 복원','시험 완료. USB 케이블을 다시 연결한 후 아래 버튼을 누르면 시험 키를 복원합니다.')}
  }
  function capture(s){
-  stopCapture();events=[];ui(s,'입력 대기 중',target()+'\n실제 키보드의 해당 키를 한 번 누르세요.');area.textContent='입력 대기 중 · 한 번만 누르세요';area.focus();reading=true;timer=setTimeout(captureDone,15000);
+  stopCapture();events=[];ui(s,'입력 대기 중',(s==='usb'?'1단계 · USB 시험\nUSB 케이블을 연결한 상태로 유지하세요.':'2단계 · 블루투스 시험\nUSB 케이블을 뽑은 상태에서 시험하세요.')+'\n'+target()+' 버튼을 한 번 누르세요.');area.textContent='입력 대기 중 · 한 번만 누르세요';area.focus();reading=true;timer=setTimeout(captureDone,15000);
  }
  for(const type of ['keydown','keyup'])area.addEventListener(type,e=>{
   if(!reading)return;e.preventDefault();e.stopPropagation();
@@ -78,7 +78,9 @@ export function setupBluetoothWizard({device,ready,layer,profile,onChange,log}){
  });
  function pause(){if(!reading)return;stopCapture();const s=stage;ui(s==='usb'?'retry-usb':'retry-bt','다시 기록','기록 영역에서 벗어났습니다. 아래 버튼을 누르고 '+target()+' 키를 누르세요.')}
  area.addEventListener('blur',pause);window.addEventListener('blur',pause);
- async function connect(){if(!device.verified||!device.dev?.opened)await device.connect()}
+ async function connect(){if(!device.verified||!device.dev?.opened)await device.connect();usbRemoved=false}
+ navigator.hid?.addEventListener('disconnect',e=>{if(e.device!==device.dev)return;usbRemoved=true;device.verified=false;if(stage==='switch'||stage==='retry-bt'){next.disabled=working;say('2단계 · 블루투스 시험\nUSB 분리 확인. 블루투스로 연결한 뒤 아래 버튼을 누르세요.')}});
+ navigator.hid?.addEventListener('connect',e=>{if(!supported(e.device))return;usbRemoved=false;if(stage==='bt')stopCapture();if(['switch','retry-bt','bt'].includes(stage))ui('switch','블루투스 연결 완료','USB가 다시 연결되었습니다.\nUSB 케이블을 뽑고 블루투스로 연결하세요.')});
  function checked(r){if(!r||!r.complete||r.failed.length||r.unexpected.length)throw Error('키 쓰기 또는 재읽기 검증 실패')}
  async function start(){
   if(!ready())throw Error('다른 미전송 변경 또는 통신을 먼저 완료하세요.');
@@ -98,11 +100,11 @@ export function setupBluetoothWizard({device,ready,layer,profile,onChange,log}){
   if(working)return;working=true;next.disabled=true;close.hidden=true;cancel.hidden=true;
   try{
    if(stage==='idle'){say('USB 장치 확인 및 빈 키에 시험 코드 기록 중');await start()}
-   else if(stage==='switch'||stage==='retry-bt')capture('bt');
+   else if(stage==='switch'||stage==='retry-bt'){if(!usbRemoved)ui('switch','블루투스 연결 완료','USB 케이블을 반드시 뽑으세요.\n분리 확인 후 블루투스 시험을 시작할 수 있습니다.');else capture('bt');}
    else if(stage==='retry-usb')capture('usb');
    else if(stage==='restore'){say('USB 연결 및 시험 키 복원 중');await restore()}
   }catch(e){log('블루투스 시험: '+e.message);stopCapture();if(journal)ui('restore','USB 연결 및 복원',e.message+'\n시험 복원 기록은 보존됩니다.');else ui('idle','테스트 시작',e.message)}
-  finally{working=false;next.disabled=stage==='usb'||stage==='bt';close.hidden=!!journal;cancel.hidden=!journal||stage==='restore';cancel.disabled=false}
+  finally{working=false;next.disabled=stage==='usb'||stage==='bt'||((stage==='switch'||stage==='retry-bt')&&!usbRemoved);close.hidden=!!journal;cancel.hidden=!journal||stage==='restore';cancel.disabled=false}
  }
  $('bluetoothWizardOpen').onclick=()=>{
   try{journal=load();result.hidden=true;usb=[];bt=[];dialog.showModal();
