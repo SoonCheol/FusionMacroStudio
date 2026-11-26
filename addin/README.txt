@@ -1,4 +1,4 @@
-Fusion Macro Studio Add-in Setup 0.3.19 (Windows preview)
+Fusion Macro Studio Add-in Setup 0.3.20 (Windows preview)
 1. Extract the entire ZIP. Close Fusion and run Setup.cmd.
 2. Install/update the independent add-in. Start Fusion.
 3. In the web editor, save fusion-macro-profile.json after writing the keypad.
@@ -17,4 +17,4 @@ Direct code mode (v0.3.16): use public Pages for new assignments. The fixed regi
 
 0.3.18: assign independent camera commands in the Normal/Held knob views. Both commands reside in one rotation record. Hold marker is automatically assigned per knob. Real overlapping hardware signals are still unverified. Existing codes remain supported.
 
-0.3.19: independent knob rotation supports fixed registered executable commands; camera pairs keep the short encoding, other pairs use an extended 14-step encoding. Hardware behavior still requires validation.
+0.3.20: independent knob rotation supports fixed registered executable commands; camera pairs keep the short encoding, other pairs use an extended 14-step encoding. Hardware behavior still requires validation.

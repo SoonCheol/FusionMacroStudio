@@ -72,3 +72,27 @@ class DirectTest(unittest.TestCase):
         self.assertEqual(pair(1,.5,3),(True,"__fms_orbit_left__"))
         self.d.up(127,.7,True)
         self.assertEqual(pair(0,.8),(True,"__fms_orbit_left__"))
+
+    def test_device_release_before_rotation_grace(self):
+        self.d=m.DirectInput(tuple(m.FAST_CAMERA))
+        def pair(knob,t):
+            n=2*12+9
+            self.tap(130+knob,t,2)
+            for i,d in enumerate((n//36,n//6%6,n%6)):
+                result=self.tap(m.PAIR_DIGITS[d],t+.01*(i+1))
+            return result
+        # Reproduce early release, then first detent, then sustained rotation.
+        self.d.down(127,2,5.459,True)
+        self.d.up(127,5.729,True)
+        self.assertEqual(pair(0,5.76),(True,"__fms_zoom_in__"))
+        self.assertEqual(self.d.last_pair_mode,"held-grace")
+        self.assertEqual(pair(1,5.86),(True,"__fms_orbit_left__"))
+        for t in (5.96,6.16,6.56,6.86):
+            self.assertEqual(pair(0,t),(True,"__fms_zoom_in__"))
+        self.assertEqual(pair(0,7.5),(True,"__fms_orbit_left__"))
+        # An isolated click does not indefinitely alter later rotation.
+        self.d.down(127,2,8,True);self.d.up(127,8.1,True)
+        self.assertEqual(pair(0,8.6),(True,"__fms_orbit_left__"))
+        self.d.down(127,2,9,True);self.d.up(127,9.1,True)
+        self.d.tick(9.15,False)
+        self.assertEqual(pair(0,9.2),(True,"__fms_orbit_left__"))

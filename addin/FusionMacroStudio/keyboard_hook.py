@@ -97,7 +97,7 @@ class Hook:
                                     self.trace.direct_event(marker,'up',active,now)
                                 if cmd:
                                     if cmd.startswith('__fms_'):
-                                        self.trace.direct_event(cmd,'decoded',active,now)
+                                        self.trace.direct_event(cmd,'decoded'+(' · '+self.direct.last_pair_mode if self.direct.last_pair_mode else ''),active,now)
                                     self.dispatch(cmd,self.generation)
                                 return 1
                             self.trace.observe(vk,0,False,active,self.mapping,now)
