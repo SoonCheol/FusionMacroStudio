@@ -53,7 +53,10 @@ try{
  assert.equal(await page.locator('.knob-action').count(),9);
  assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);
  assert.ok(await page.locator('#keys .key .name').first().innerText()==='');
+ assert.equal(await page.locator('#connect').isEnabled(),true);
  await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
+ assert.equal(await page.locator('#connect').isDisabled(),true);
+ assert.equal(await page.locator('#read').isEnabled(),true);
  assert.equal(await page.locator('#keys .key img').count(),0);
  await page.locator('#read').click();await page.locator('#deviceStatus').filter({hasText:'63/63'}).waitFor();
  assert.equal(await page.locator('#keys .key img').count(),0);
@@ -79,6 +82,8 @@ try{
  await verifyLabels('Theme and search');
  await page.screenshot({path:'browser-preview/editor-assigned.png'});
  await page.evaluate(()=>window.fakeDisconnect());
+ assert.equal(await page.locator('#connect').isEnabled(),true);
+ assert.equal(await page.locator('#read').isDisabled(),true);
  assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);
  assert.equal(await page.locator('#keys .key .name').first().innerText(),'');
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
