@@ -1,4 +1,4 @@
-# 현재 상태 v0.3.10
+# 현재 상태 v0.3.11
 - 공개 저장소 main, 정적 웹앱으로 변경. 기존 DeckForge 변경 없음.
 - 실물 4열×3행 키, 오른쪽 세로 3노브, 오른쪽 명령 패널, 테마, 패널 너비 조절, 검색/한영, 드래그, 프로필 파일 저장/불러오기, 로컬 원본 PNG 가져오기 구현.
 - 실제 메뉴 자료 959개 배치 / 326 고유 명령 및 영문 1209개 자료 사용. 전체 6MB 카탈로그는 커넥터 미반환으로 로컬 JSON 추가 가져오기만 구현.
@@ -36,3 +36,5 @@
 - v0.3.10: 일반 키 500ms 길게 ESC 1회 실행/떼기 중복 방지, 반복 입력·노브 구분, 포커스/프로필 변경 취소 및 1.5초 지난 입력 폐기. Fusion 이벤트 큐 반환 및 명령 실행 반환 검사. 공식 API getExtents/setExtents(2023.10), 원근 카메라 eye 거리 제어, 구 API fallback, 7도 오비트/0.85 줌은 실기 검증 전 임시값. 순수 상태기계/줌 계산 테스트 추가. 노브 누른 채 회전은 장치 이벤트 미확인으로 구현하지 않음. UI/아이콘/HID 변경 없음. API 출처: https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_Camera_getExtents.htm , https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_Camera_setExtents.htm , https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_Application_fireCustomEvent.htm , https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_CommandDefinition_execute.htm .
 
 - v0.3.10 자동 검증 run 45775868941 validate 성공: Node 20/20, Chromium 한/영·검색·드래그·레이어·테마·갤러리 통과, Python 8/8, PowerShell 구문 검사 및 ZIP 생성 성공. 실기와 구분. 추가 가상 HID 연결/63슬롯/변경 쓰기/취소/복원/연결해제 및 JS-Python 63매핑 교차 테스트 등록(실행 결과 별도 확인). docs/DEVICE-TEST.md 실기 절차 추가. 제품 버전과 아이콘 변경 없음.
+
+- v0.3.11: 사용자 Windows 설치 시 name 인수 오류 보고. Fusion manifest의 기본 설명 빈 키를 Windows PowerShell 5.1 ConvertFrom-Json이 처리하지 못하는 경로를 확인. 매니페스트 원본 형식 유지, .NET JavaScriptSerializer로 설치/상태 조회 파싱 변경. Windows PowerShell 5.1 임시 디렉터리 설치/업데이트/백업/인접 애드인 보존 자동 검사 추가, 배포 전 결과 확인 필요. 오류 메시지에 스크립트 위치 추가. 실제 Fusion 설치 재검증 필요. 기존 웹 UI/아이콘/DeckForge 변경 없음. v0.3.10 추가 run 45776351066 Node 22/22, Python 8/8 및 Pages 배포 성공 확인.

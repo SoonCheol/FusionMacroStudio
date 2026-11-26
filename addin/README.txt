@@ -1,4 +1,4 @@
-Fusion Macro Studio Add-in Setup 0.3.10 (Windows preview)
+Fusion Macro Studio Add-in Setup 0.3.11 (Windows preview)
 1. Extract the entire ZIP. Close Fusion and run Setup.cmd.
 2. Install/update the independent add-in. Start Fusion.
 3. In the web editor, save fusion-macro-profile.json after writing the keypad.

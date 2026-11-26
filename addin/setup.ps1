@@ -1,12 +1,21 @@
 # FusionMacroStudio only. No admin rights required. Keep other add-ins intact.
+param([switch]$SelfTest)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.10'
+$packageVersion = '0.3.11'
 $required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
+function Read-Manifest([string]$path) {
+    # Fusion uses an empty string for the default localized description.
+    # Windows PowerShell 5.1 cannot convert that key to a PSCustomObject.
+    Add-Type -AssemblyName System.Web.Extensions
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $result = $serializer.DeserializeObject((Get-Content -LiteralPath $path -Raw -Encoding UTF8))
+    return ,$result
+}
 function Get-Target {
     $existing = @($roots | Where-Object { Test-Path (Join-Path $_ 'FusionMacroStudio') })
     if ($existing.Count -eq 1) { return (Join-Path $existing[0] 'FusionMacroStudio') }
@@ -39,7 +48,7 @@ function Install-Package {
     Assert-Closed
     $target = Get-Target
     foreach ($name in $required) { if (!(Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf)) { throw "Missing package: $name" } }
-    $m = Get-Content -LiteralPath (Join-Path $source 'FusionMacroStudio.manifest') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $m = Read-Manifest (Join-Path $source 'FusionMacroStudio.manifest')
     if ($m.version -ne $packageVersion -or $m.type -ne 'addin' -or !$m.runOnStartup) { throw 'Package manifest mismatch.' }
     # Stage outside AddIns to prevent discovery of an incomplete package.
     $parent = Split-Path (Split-Path $target -Parent) -Parent
@@ -66,6 +75,30 @@ function Install-Package {
     # Keep the previous version as a private local backup, outside AddIns.
     if ($moved) { Write-Host "Previous add-in: $old" }
 }
+if ($SelfTest) {
+    # Test only inside a disposable folder, never in the actual Fusion directory.
+    $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('FMS-test-' + [Guid]::NewGuid().ToString('N'))
+    try {
+        $roots = @(Join-Path $testRoot 'API\AddIns')
+        New-Item -ItemType Directory -Path $roots[0] -Force | Out-Null
+        $neighbor = Join-Path $roots[0] 'OtherAddin'
+        New-Item -ItemType Directory -Path $neighbor | Out-Null
+        $manifest = Read-Manifest (Join-Path $source 'FusionMacroStudio.manifest')
+        if ($manifest.version -ne $packageVersion -or !$manifest.description.ContainsKey('')) { throw 'Manifest self-test failed.' }
+        Install-Package
+        $target = Get-Target
+        foreach ($name in $required) { if (!(Test-Path -LiteralPath (Join-Path $target $name) -PathType Leaf)) { throw 'Install self-test failed.' } }
+        if ((Read-Manifest (Join-Path $target 'FusionMacroStudio.manifest')).version -ne $packageVersion) { throw 'Installed manifest self-test failed.' }
+        Install-Package
+        if (!(Test-Path -LiteralPath $neighbor) -or !(Test-Path -LiteralPath $target)) { throw 'Update self-test failed.' }
+        $previous = @(Get-ChildItem -LiteralPath (Split-Path $roots[0] -Parent) -Directory -Filter 'FusionMacroStudio.previous.*')
+        if ($previous.Count -ne 1) { throw 'Update backup self-test failed.' }
+        Write-Host 'Windows installer self-test passed: manifest, install, update, backup, neighbor preservation.'
+    } finally {
+        if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
+    }
+    return
+}
 New-Item -ItemType Directory -Path $homeDir -Force | Out-Null
 $form = New-Object Windows.Forms.Form
 $form.Text = 'Fusion Macro Studio Add-in Setup ' + $packageVersion
@@ -82,7 +115,7 @@ $status.SetBounds(20,338,470,105); $form.Controls.Add($status)
 function Refresh-Status {
     try {
         $path = Get-Target
-        $installed = if (Test-Path (Join-Path $path 'FusionMacroStudio.manifest')) { (Get-Content -LiteralPath (Join-Path $path 'FusionMacroStudio.manifest') -Raw -Encoding UTF8 | ConvertFrom-Json).version } else { 'Not installed' }
+        $installed = if (Test-Path (Join-Path $path 'FusionMacroStudio.manifest')) { (Read-Manifest (Join-Path $path 'FusionMacroStudio.manifest')).version } else { 'Not installed' }
         $s = if (Test-Path (Join-Path $homeDir 'status.json')) { Get-Content (Join-Path $homeDir 'status.json') -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
         $age = if ($s) { [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [double]$s.time } else { 999 }
         $live = $s -and $s.state -eq 'running' -and $age -ge -2 -and $age -lt 12 -and (Get-Process -Id $s.pid -ErrorAction SilentlyContinue)
@@ -96,7 +129,7 @@ function Refresh-Status {
 function Add-Action($text,$y,$action) {
     $b = New-Object Windows.Forms.Button
     $b.SetBounds(20,$y,460,36); $b.Text=$text
-    $b.Add_Click({ try { & $action; Refresh-Status } catch { [Windows.Forms.MessageBox]::Show($_.Exception.Message,'Fusion Macro Studio') | Out-Null } }.GetNewClosure())
+    $b.Add_Click({ try { & $action; Refresh-Status } catch { [Windows.Forms.MessageBox]::Show(($_.Exception.Message + [Environment]::NewLine + $_.ScriptStackTrace),'Fusion Macro Studio') | Out-Null } }.GetNewClosure())
     $form.Controls.Add($b)
 }
 Add-Action 'Install / update add-in' 80 {

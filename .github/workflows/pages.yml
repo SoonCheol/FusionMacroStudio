@@ -12,6 +12,13 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
+  windows-installer:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test installer on Windows PowerShell 5.1
+        shell: powershell
+        run: ./addin/setup.ps1 -SelfTest
   validate:
     runs-on: ubuntu-24.04
     steps:
@@ -58,7 +65,7 @@ jobs:
         with:
           path: site
   deploy:
-    needs: validate
+    needs: [validate, windows-installer]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
