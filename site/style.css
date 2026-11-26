@@ -5,3 +5,6 @@
 .hardware{align-items:start}.keys{grid-template-rows:repeat(3, minmax(72px,1fr));align-self:start;min-height:0}.knob-action .missing{display:none}#more{margin-top:8px;width:100%} .key .art{width:30px;height:30px} .command-card .art{width:32px;height:32px}.command-card .name{max-width:100%}
 
 .art.vector-art{background:#edf4f8;padding:2px;border:1px solid #aabfce;border-radius:5px;box-shadow:0 1px 2px #0002}.command-card .art{width:36px;height:36px}.key .art{width:34px;height:34px}.knob-action .art{width:23px;height:23px}.command-card{height:82px;padding:5px 13px 5px 5px}.command-card .name{font-size:12px;line-height:1.15;min-height:14px}.command-card .info{border-color:var(--line);background:var(--panel)}:root[data-theme=light] .art.vector-art{background:#f0f5f8;border-color:#bdccd6}.command-card:hover .art.vector-art{border-color:var(--selected)}
+
+/* Keep sketch icon geometry legible, without a heavy frame. */
+.art.vector-art{background:#f4f7f8;border-color:#c5d2d9;box-shadow:none;padding:2px}.command-card .art.vector-art{border-radius:4px}

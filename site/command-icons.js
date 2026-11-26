@@ -6,6 +6,11 @@ const line=(x,y,X,Y,c=ink,w=1.7)=>path('M'+x+' '+y+' L'+X+' '+Y,c,w);
 const circle=(x,y,r,f='none',s=ink,w=1.5)=>'<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+f+'" stroke="'+s+'" stroke-width="'+w+'"/>';
 const rect=(x,y,w,h,f='none',s=ink,r=1)=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="'+r+'" fill="'+f+'" stroke="'+s+'" stroke-width="1.5"/>';
 const dots=(...pts)=>pts.map(([x,y])=>circle(x,y,1.85,amber,'#fff',.65)).join('');
+// Sketch references: grey geometry and blue square sketch handles.
+const sketchInk='#555e65', sketchBlue='#149bd2';
+const nodes=(...pts)=>pts.map(([x,y])=>rect(x-1.35,y-1.35,2.7,2.7,sketchBlue,'#edf8ff',.15)).join('');
+const sketchLine=(d,w=1.45)=>path(d,sketchInk,w);
+const sketchDash=(d)=>path(d,sketchBlue,1.35,'none','stroke-dasharray="2.5 2"');
 const dash=(d,c=blue)=>path(d,c,1.3,'none','stroke-dasharray="2.5 2.1"');
 const arrow=(x,y,X,Y,c=blue)=>{const a=Math.atan2(Y-y,X-x),r=4;return line(x,y,X,Y,c,2)+path('M'+(X-r*Math.cos(a-.6))+' '+(Y-r*Math.sin(a-.6))+' L'+X+' '+Y+' L'+(X-r*Math.cos(a+.6))+' '+(Y-r*Math.sin(a+.6)),c,1.8)};
 const plane=(x=4,y=14)=>path('M'+x+' '+y+' l13 -7 12 7 -13 7Z',blue,1.35,'#c1e5ee');
@@ -23,43 +28,43 @@ const paper=()=>path('M7 3 H20 L26 9 V29 H7Z',ink,1.4,'#f1f6f8')+path('M20 3 V9 
 const mesh=()=>poly([[3,24],[7,8],[19,3],[29,11],[26,26],[15,29]])+path('M3 24 L19 3 L26 26 L7 8 L29 11 L15 29 L3 24 M7 8 L15 29 M19 3 L29 11',blue,1.1);
 const joint=()=>circle(9,17,5,'url(#top)')+circle(23,17,5,'url(#top)')+line(9,17,23,17,blue,3)+circle(16,17,3,amber,ink);
 const bodies={
- line:()=>line(5,25,26,6,blue,2)+dots([5,25],[26,6]),
- midpoint:()=>line(4,25,28,7,blue,2)+dots([4,25],[16,16],[28,7]),
- rect2:()=>rect(5,8,22,17,'#d7ecf4',blue)+dots([5,8],[27,25]),
- rect3:()=>poly([[4,15],[23,6],[29,18],[10,27]])+dots([4,15],[23,6],[29,18]),
- rectcenter:()=>rect(5,6,22,20,'#d7ecf4',blue)+dash('M5 6 L27 26 M27 6 L5 26')+dots([16,16],[27,26]),
- circlecenter:()=>circle(16,16,11,'#d7ecf4',blue,1.8)+line(16,16,26,12,blue)+dots([16,16],[26,12]),
- circle2:()=>circle(16,16,11,'#d7ecf4',blue,1.8)+dash('M5 16 H27')+dots([5,16],[27,16]),
- circle3:()=>circle(16,16,11,'#d7ecf4',blue,1.8)+dots([16,5],[5,16],[24,24]),
+ line:()=>sketchLine('M3.5 24 H20.5 C27 24 30 20 29 14 C28 8 24 6 19 6')+nodes([3.5,24],[20.5,24],[19,6]),
+ midpoint:()=>sketchLine('M4 28 L28 4')+nodes([4,28],[16,16],[28,4]),
+ rect2:()=>rect(4,7,24,18,'none',sketchInk,.15)+nodes([4,7],[28,25]),
+ rect3:()=>sketchLine('M4 15 L21 5 L28 18 L11 28 Z')+nodes([4,15],[21,5],[28,18]),
+ rectcenter:()=>rect(4,6,24,20,'none',sketchInk,.15)+sketchDash('M4 6 L28 26 M28 6 L4 26')+nodes([16,16],[28,26]),
+ circlecenter:()=>circle(16,16,12,'none',sketchInk,1.4)+arrow(16,16,24,8,sketchBlue)+arrow(16,16,8,24,sketchBlue)+nodes([16,16]),
+ circle2:()=>circle(16,16,12,'none',sketchInk,1.4)+sketchDash('M5 16 H27')+nodes([4,16],[28,16]),
+ circle3:()=>circle(16,16,12,'none',sketchInk,1.4)+nodes([16,4],[4,16],[25,24]),
  circletan2:()=>line(3,6,28,6)+line(6,6,6,29)+circle(16,16,10,'#d7ecf4',blue)+dots([16,6],[6,16]),
  circletan3:()=>path('M3 5 H29 L16 30Z',ink,1.4)+circle(16,13,8,'#d7ecf4',blue)+dots([16,5],[9,17],[23,17]),
- arc3:()=>path('M4 24 Q8 -2 28 12',blue,2)+dots([4,24],[12,10],[28,12]),
- arccenter:()=>path('M5 23 A17 17 0 0 1 25 5',blue,2)+dash('M24 24 L5 23 M24 24 L25 5')+dots([5,23],[24,24],[25,5]),
- arctan:()=>line(3,25,12,25)+path('M12 25 A14 14 0 0 0 26 8',blue,2)+dots([12,25],[26,8]),
+ arc3:()=>sketchLine('M4 24 Q8 -2 28 12')+nodes([4,24],[12,10],[28,12]),
+ arccenter:()=>sketchLine('M5 23 A17 17 0 0 1 25 5')+sketchDash('M24 24 L5 23 M24 24 L25 5')+nodes([5,23],[24,24],[25,5]),
+ arctan:()=>sketchLine('M3 25 H12 A14 14 0 0 0 26 8')+nodes([12,25],[26,8]),
  polygon:()=>poly([[16,4],[27,11],[27,23],[16,29],[5,23],[5,11]])+dots([16,4],[27,11]),
  polygonin:()=>circle(16,16,13,'none',blue,1)+poly([[16,4],[27,11],[27,23],[16,28],[5,23],[5,11]])+dots([16,16]),
  polygonout:()=>poly([[16,3],[28,9],[28,23],[16,29],[4,23],[4,9]])+circle(16,16,10,'none',blue,1)+dots([16,16]),
- ellipse:()=>'<ellipse cx="16" cy="16" rx="12" ry="7.5" transform="rotate(-27 16 16)" fill="#d7ecf4" stroke="'+blue+'" stroke-width="1.8"/>'+dash('M5 22 L27 10')+dots([16,16],[27,10]),
+ ellipse:()=>'<ellipse cx="16" cy="17" rx="12" ry="8" fill="none" stroke="'+sketchInk+'" stroke-width="1.45"/>'+sketchLine('M13 17 H19 M16 14 V20',1)+nodes([16,9],[28,17]),
  slot:()=>rect(3,10,26,12,'#d7ecf4',blue,6)+dash('M9 16 H23')+dots([9,16],[23,16]),
  slotend:()=>rect(3,10,26,12,'#d7ecf4',blue,6)+dots([3,16],[29,16]),
  slotcenter:()=>rect(3,10,26,12,'#d7ecf4',blue,6)+dash('M9 16 H23')+dots([16,16],[23,16]),
  arcslot:()=>path('M5 25 A20 20 0 0 1 25 5 A4 4 0 0 1 25 13 A12 12 0 0 0 13 25 A4 4 0 0 1 5 25Z',blue,1.7,'#d7ecf4')+dots([9,25],[25,9]),
- spline:()=>curves()+dots([3,24],[10,13],[20,17],[29,7]),
- controlspline:()=>curves()+dash('M3 24 L8 3 L17 29 L29 7')+dots([3,24],[8,3],[17,29],[29,7]),
+ spline:()=>sketchLine('M3 27 C4 7 8 6 12 9 C20 15 24 30 28 3',1.55)+nodes([3,27],[8,8],[23,19],[28,3]),
+ controlspline:()=>sketchLine('M3 24 C8 3 17 29 29 7')+sketchDash('M3 24 L8 3 L17 29 L29 7')+nodes([3,24],[8,3],[17,29],[29,7]),
  conic:()=>path('M4 26 Q4 5 28 5',blue,2)+dash('M4 26 L4 5 L28 5')+dots([4,26],[4,5],[28,5]),
- point:()=>line(5,16,27,16,blue,1)+line(16,5,16,27,blue,1)+circle(16,16,3,amber,ink),
- text:()=>letters('T',16,24,25,blue)+line(4,27,28,27,amber,1.3),
- mirror:()=>dash('M16 3 V29')+poly([[5,8],[5,24],[13,18]])+poly([[27,8],[27,24],[19,18]]),
- circular:()=>circle(16,16,10,'none',blue,1)+[0,1,2,3].map(i=>circle(16+10*Math.cos(i*Math.PI/2),16+10*Math.sin(i*Math.PI/2),3.1,'#a8d3e7',ink,1)).join('')+dots([16,16]),
- pattern:()=>[0,1,2].flatMap(y=>[0,1,2].map(x=>rect(4+x*9,4+y*9,6,6,x+y?'#c5e5ef':'#efb45b',blue,1))).join(''),
+ point:()=>sketchLine('M4 16 H28 M16 4 V28',1.1)+nodes([16,16]),
+ text:()=>letters('A',16,26,26,sketchInk),
+ mirror:()=>sketchLine('M4 28 L14 4 V28 Z M18 4 V28 H28 Z')+line(16,3,16,29,sketchBlue,1.6)+line(18,4,28,28,sketchBlue,1.4),
+ circular:()=>[0,1,2,3,4,5].map(i=>circle(16+10*Math.cos(i*Math.PI/3),16+10*Math.sin(i*Math.PI/3),2.8,'none',i%2?sketchBlue:sketchInk,1.3)).join('')+nodes([16,16]),
+ pattern:()=>[0,1].flatMap(y=>[0,1,2].map(x=>rect(4+x*9,8+y*12,5,5,'none',(x+y)%2?sketchBlue:sketchInk,.2))).join('')+sketchDash('M7 14 V20 M12 10 H16'),
  pathpattern:()=>curves()+dots([4,23],[12,14],[21,16],[29,7]),
  project:()=>plane(3,23)+path('M5 7 L18 2 27 7 14 12Z',ink,1.4,'#c9b9ed')+arrow(15,11,15,23,violet),
  intersect:()=>plane(2,18)+path('M13 3 L26 10 V27 L13 20Z',blue,1.4,'#b0deea')+line(13,13,25,20,violet,2.4),
  dimension:()=>line(6,6,6,27)+line(26,6,26,27)+line(6,23,26,23,blue)+arrow(16,11,6,11,blue)+arrow(16,11,26,11,blue)+letters('25',16,8,8,ink),
- fillet2:()=>path('M5 27 V14 Q5 5 14 5 H27',blue,2.2)+dash('M5 14 V5 H14')+dots([5,14],[14,5]),
- chamfer2:()=>path('M5 27 V15 L15 5 H27',blue,2.2)+dash('M5 15 V5 H15')+dots([5,15],[15,5]),
- offset:()=>path('M4 24 L4 10 L18 10',ink,1.6)+path('M11 28 V17 H28',blue,2)+arrow(7,12,11,16,amber),
- trim:()=>line(4,23,27,5,blue,2)+line(5,6,26,27)+dash('M16 16 L26 27',red)+cross(16,16),
+ fillet2:()=>sketchLine('M5 29 V17 M17 5 H29')+path('M5 17 Q5 5 17 5',sketchBlue,1.7)+nodes([5,17],[17,5]),
+ chamfer2:()=>sketchLine('M5 29 V16 M16 5 H29')+path('M5 16 L16 5',sketchBlue,1.8)+nodes([5,16],[16,5]),
+ offset:()=>sketchLine('M28 8 H15 C-1 8 -1 24 15 24 H28')+path('M28 4 H15 C-7 4 -7 28 15 28 H28',sketchBlue,1.5),
+ trim:()=>sketchDash('M3 7 H28')+sketchLine('M16 7 L22 18 L10 28 M16 7 L10 18 L22 28',2)+circle(10,25,4,'none',sketchInk,1.7)+circle(22,25,4,'none',sketchInk,1.7),
  extend:()=>line(3,25,15,14,blue,2)+dash('M15 14 L26 4')+arrow(15,14,26,4,blue)+line(21,2,30,12),
  break:()=>line(3,16,12,16,blue,2)+line(20,16,29,16,blue,2)+path('M11 22 l3 -12 M18 22 l3 -12',red,1.8),
  scale:()=>rect(4,15,12,12,'#d7ecf4',blue)+dash('M4 4 H28 V28 H4Z')+arrow(16,16,28,4,blue),
