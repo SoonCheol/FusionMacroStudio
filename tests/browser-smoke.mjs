@@ -81,6 +81,13 @@ try{
  await page.locator('#search').fill('DrawPolyline');
  await verifyLabels('Theme and search');
  await page.screenshot({path:'browser-preview/editor-assigned.png'});
+ page.once('dialog',d=>d.accept());
+ await page.locator('#clearLayer').click();
+ assert.equal(await page.locator('#keys .key img').count(),0);
+ assert.ok((await page.locator('#pendingCount').innerText()).includes('21개'));
+ page.once('dialog',d=>d.accept());
+ await page.locator('#clearAll').click();
+ assert.ok((await page.locator('#pendingCount').innerText()).includes('63개'));
  await page.evaluate(()=>window.fakeDisconnect());
  assert.equal(await page.locator('#connect').isEnabled(),true);
  assert.equal(await page.locator('#read').isDisabled(),true);

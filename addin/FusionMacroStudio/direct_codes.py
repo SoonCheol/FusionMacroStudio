@@ -3,6 +3,11 @@ import json
 from pathlib import Path
 
 CAPACITY = 11**4
+FAST_CAMERA = ["__fms_fit__","__fms_orbit_down__","__fms_orbit_left__","__fms_orbit_right__","__fms_orbit_up__","__fms_pan_down__","__fms_pan_left__","__fms_pan_right__","__fms_pan_up__","__fms_zoom_in__","__fms_zoom_out__"]
+HOLD_MARKERS = {133: "__fms_hold_pan__", 134: "__fms_hold_vertical__"}
+PAN = {f"__fms_orbit_{d}__": f"__fms_pan_{d}__" for d in ("left","right","up","down")}
+VERTICAL = {"__fms_orbit_left__":"__fms_orbit_up__", "__fms_orbit_right__":"__fms_orbit_down__",
+            "__fms_pan_left__":"__fms_pan_up__", "__fms_pan_right__":"__fms_pan_down__"}
 def load_codes(path):
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     ids = data.get("ids")
@@ -21,24 +26,44 @@ class DirectInput:
         self.held=set()
         self.frame=None
         self.deadline=0
+        self.short=False
+        self.markers={}
+        self.marker_edges=set()
+    def reset(self):
+        self.cancel()
+        self.markers.clear()
+    def route(self,cmd):
+        mode=next(reversed(self.markers.values()),None) if self.markers else None
+        return PAN.get(cmd,cmd) if mode=="__fms_hold_pan__" else VERTICAL.get(cmd,cmd) if mode=="__fms_hold_vertical__" else cmd
     def cancel(self):
         self.frame=None
+        self.short=False
     def tick(self,now,active):
-        if not active or now>self.deadline:
+        if not active:
+            self.reset()
+        elif now>self.deadline:
             self.cancel()
     def down(self,vk,mods,now,active):
         self.tick(now,active)
+        if vk in self.marker_edges:
+            return True
+        if active and mods==2 and vk in HOLD_MARKERS:
+            self.marker_edges.add(vk)
+            self.markers[vk]=HOLD_MARKERS[vk]
+            return True
         if vk in self.held:
             return True
-        if not active or mods!=1 or not 124<=vk<=135:
+        short_prefix=active and mods==2 and vk==135
+        if not active or (not short_prefix and mods!=1 and not (self.markers and mods==3)) or not 124<=vk<=135:
             self.cancel()
             return False
         overlap=bool(self.held)
         self.held.add(vk)
         if overlap:
             self.cancel()
-        elif vk==135:
+        elif short_prefix or vk==135:
             self.frame=[]
+            self.short=short_prefix
         elif self.frame is not None:
             self.frame.append(vk-124)
         self.deadline=now+self.timeout
@@ -46,16 +71,24 @@ class DirectInput:
         return True
     def up(self,vk,now,active):
         self.tick(now,active)
+        if vk in self.marker_edges:
+            self.marker_edges.remove(vk)
+            self.markers.pop(vk,None)
+            return True,None
         if vk not in self.held:
             return False,None
         self.held.remove(vk)
         if self.frame is None or self.held:
             return True,None
         self.deadline=now+self.timeout
+        if self.short and len(self.frame)==1:
+            i=self.frame[0]
+            self.cancel()
+            return True,self.route(FAST_CAMERA[i]) if 0<=i<len(FAST_CAMERA) and FAST_CAMERA[i] in self.ids else None
         if len(self.frame)!=4:
             return True,None
         index=0
         for digit in self.frame:
             index=index*11+digit
         self.cancel()
-        return True,self.ids[index] if index<len(self.ids) else None
+        return True,self.route(self.ids[index]) if index<len(self.ids) else None

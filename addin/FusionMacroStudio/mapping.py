@@ -119,6 +119,10 @@ class KnobTrace:
         import time
         with self.lock:
             return {"active": time.monotonic() < self.until, "events": list(self.events)}
+    def direct_event(self, command, edge, active, now):
+        with self.lock:
+            if active and now < self.until and len(self.events)<240:
+                self.events.append({"ms":round((now-self.started)*1000),"command":command,"edge":edge})
     def observe(self, vk, mods, down, active, mapping, now):
         with self.lock:
             if now >= self.until or not active:
@@ -140,3 +144,18 @@ class KnobTrace:
                 self.events.append({"ms": round((now-self.started)*1000), "layer": l+1,
                     "knob": (s-16)//3+1, "action": ("left","press","right")[(s-16)%3],
                     "edge": "down" if down else "up"})
+
+
+class CameraRate:
+    """Modest acceleration based on decoded same-direction arrival intervals."""
+    def __init__(self):
+        self.previous=None
+    def step(self, command, created):
+        prior=self.previous
+        self.previous=(command,created)
+        if not prior or prior[0]!=command:
+            return 1.0
+        interval=created-prior[1]
+        if interval<=0 or interval>=.18:
+            return 1.0
+        return min(2.5,max(1.0,.18/interval))

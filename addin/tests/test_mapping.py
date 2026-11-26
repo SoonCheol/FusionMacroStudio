@@ -68,6 +68,12 @@ class Test(unittest.TestCase):
                          [("press","down"),("left","down"),("left","up"),("press","up")])
         t.observe(left[1],left[0],True,True,mapping,now+31)
         self.assertEqual(len(t.snapshot()["events"]),4)
+    def test_camera_rate(self):
+        r=m.CameraRate()
+        self.assertEqual(r.step("left",0),1)
+        self.assertEqual(r.step("left",.02),2.5)
+        self.assertEqual(r.step("right",.03),1)
+        self.assertEqual(r.step("right",.4),1)
     def test_zoom_extents(self):
         self.assertEqual(m.zoom_extents(20,10,.85),(17,8.5))
         w,h=m.zoom_extents(2e-6,1e-6,.85)

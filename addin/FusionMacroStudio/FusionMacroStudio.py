@@ -1,4 +1,5 @@
 import adsk.core
+import adsk.fusion
 import json
 import math
 import os
@@ -9,14 +10,14 @@ import shutil
 import threading
 import time
 import traceback
-from .mapping import load_mapping, zoom_extents, execute_definition
+from .mapping import load_mapping, zoom_extents, execute_definition, CameraRate
 from .keyboard_hook import Hook, foreground
 from .direct_codes import load_codes
 from .local_editor import start_editor, stop_editor, revision
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.16"
+VERSION = "0.3.17"
 app = None
 handler = None
 event = None
@@ -82,7 +83,72 @@ def export_catalog():
     export_status("completed", commands=len(rows), local_pngs=count)
     log("Exported %s definitions, %s local PNGs" % (len(rows),count))
 
-def camera_action(command):
+PIVOT_MODES={"__fms_pivot_auto__":"auto","__fms_pivot_body__":"body","__fms_pivot_origin__":"origin","__fms_pivot_camera__":"camera","__fms_pivot_point__":"point"}
+pivot_mode="auto"
+custom_pivot=None
+custom_document=None
+orbit_cache=None
+
+def box_center(box):
+    if box is None:
+        return None
+    lo,hi=box.minPoint,box.maxPoint
+    xyz=[(getattr(lo,k)+getattr(hi,k))/2 for k in ("x","y","z")]
+    return adsk.core.Point3D.create(*xyz) if all(math.isfinite(v) for v in xyz) else None
+
+def select_pivot(command):
+    global pivot_mode, custom_pivot, custom_document, orbit_cache
+    mode=PIVOT_MODES[command]
+    if mode=="point":
+        selections=app.userInterface.activeSelections
+        point=selections.item(0).point if selections.count else None
+        if point is None or not all(math.isfinite(getattr(point,k)) for k in ("x","y","z")):
+            log("Select a point on a model before setting the custom pivot")
+            return
+        custom_pivot=point.copy()
+        custom_document=app.activeDocument
+    pivot_mode=mode
+    orbit_cache=None
+    log("Orbit pivot: "+mode)
+
+def orbit_center(cam):
+    global orbit_cache
+    if pivot_mode=="origin":
+        return adsk.core.Point3D.create(0,0,0)
+    if pivot_mode=="camera":
+        return cam.target
+    document=app.activeDocument
+    if pivot_mode=="point":
+        return custom_pivot.copy() if custom_pivot is not None and document==custom_document else cam.target
+    now=time.monotonic()
+    if orbit_cache and orbit_cache[0]==document and now-orbit_cache[1]<.25:
+        point=orbit_cache[2]
+        orbit_cache=(document,now,point)
+        return point.copy() if point else cam.target
+    point=None
+    try:
+        selections=app.userInterface.activeSelections
+        for i in range(selections.count):
+            entity=selections.item(i).entity
+            body=adsk.fusion.BRepBody.cast(entity)
+            if not body:
+                owner=getattr(entity,"body",None)
+                body=adsk.fusion.BRepBody.cast(owner) if owner else None
+            if body:
+                point=box_center(body.boundingBox)
+                if point:break
+        if point is None and pivot_mode=="auto":
+            design=adsk.fusion.Design.cast(app.activeProduct)
+            if design:
+                root=design.rootComponent
+                point=box_center(root.boundingBox2(7)) if hasattr(root,"boundingBox2") else box_center(root.boundingBox)
+    except Exception:
+        log("Orbit pivot fallback: "+traceback.format_exc())
+    orbit_cache=(document,now,point)
+    return point.copy() if point else cam.target
+
+def camera_action(command, amount=1.0):
+    amount=max(1.0,min(20.0,float(amount)))
     viewport = app.activeViewport
     if not viewport:
         raise RuntimeError("No active viewport")
@@ -91,7 +157,7 @@ def camera_action(command):
     if command == "__fms_fit__":
         cam.isFitView = True
     elif command in ("__fms_zoom_in__","__fms_zoom_out__"):
-        factor = 0.85 if command.endswith("in__") else 1/0.85
+        factor = (0.85 if command.endswith("in__") else 1/0.85)**amount
         if hasattr(cam, "getExtents") and hasattr(cam, "setExtents"):
             ok, width, height = cam.getExtents()
             if ok:
@@ -137,7 +203,7 @@ def camera_action(command):
         axis = right if horizontal else vertical
         # Translate camera opposite to the desired apparent model movement.
         sign = 1 if command in ("__fms_pan_left__","__fms_pan_down__") else -1
-        axis.scaleBy(sign * 0.05 * (width if horizontal else height))
+        axis.scaleBy(sign * 0.05 * amount * (width if horizontal else height))
         eye.translateBy(axis)
         target.translateBy(axis)
         cam.eye = eye
@@ -151,13 +217,16 @@ def camera_action(command):
             axis = up.copy()
         if not axis.normalize():
             raise RuntimeError('Invalid orbit axis')
-        angle = math.radians(7 if command in ("__fms_orbit_left__","__fms_orbit_up__") else -7)
+        angle = math.radians((7 if command in ("__fms_orbit_left__","__fms_orbit_up__") else -7)*amount)
         matrix = adsk.core.Matrix3D.create()
-        if not matrix.setToRotation(angle,axis,cam.target):
+        if not matrix.setToRotation(angle,axis,orbit_center(cam)):
             raise RuntimeError('Orbit rotation failed')
         eye = cam.eye
         eye.transformBy(matrix)
+        target=cam.target
+        target.transformBy(matrix)
         cam.eye = eye
+        cam.target = target
         up.transformBy(matrix)
         cam.upVector = up
     viewport.camera = cam
@@ -190,8 +259,12 @@ class Dispatch(adsk.core.CustomEventHandler):
             if cmd == "__fms_escape__":
                 if not ui.terminateActiveCommand():
                     log("No active command terminated")
+            elif cmd in PIVOT_MODES:
+                select_pivot(cmd)
             elif cmd in CAMERA:
-                camera_action(cmd)
+                camera_action(cmd,payload.get('amount',1))
+            elif cmd in ('__fms_hold_pan__','__fms_hold_vertical__'):
+                return
             else:
                 result = execute_definition(ui.commandDefinitions, cmd)
                 log(result + ": " + cmd)
@@ -204,6 +277,8 @@ def poll():
     profile_state = "missing"
     profile_error = ""
     profile_revision = ""
+    deferred=None
+    rate=CameraRate()
     while not stop_event.is_set():
         try:
             path = HOME/"profile.json"
@@ -240,12 +315,33 @@ def poll():
                 stamp=time.monotonic()
             hook.tick()
             try:
-                action, generation, created = actions.get(timeout=.025)
+                if deferred is not None:
+                    action,generation,created=deferred
+                    deferred=None
+                else:
+                    action, generation, created = actions.get(timeout=.025)
             except queue.Empty:
                 continue
             if action != "__fms_export__" and (generation != hook.generation or time.monotonic()-created > 1.5 or not foreground()):
                 continue
-            if not app.fireCustomEvent(EVENT,json.dumps({"command":action,"generation":generation,"created":created})):
+            amount=1.0
+            if action in CAMERA and action!='__fms_fit__':
+                amount=rate.step(action,created)
+                deadline=time.monotonic()+.012
+                for _ in range(7):
+                    remaining=deadline-time.monotonic()
+                    if remaining<=0:break
+                    try:
+                        item=actions.get(timeout=remaining)
+                    except queue.Empty:break
+                    if item[:2]!=(action,generation):
+                        deferred=item
+                        break
+                    if time.monotonic()-item[2]<=1.5:
+                        amount+=rate.step(action,item[2])
+            else:
+                rate.previous=None
+            if not app.fireCustomEvent(EVENT,json.dumps({"command":action,"generation":generation,"created":created,"amount":amount})):
                 log("Fusion event queue returned false (no retry): "+action)
                 if action == "__fms_export__":
                     export_status("error",message="Fusion event rejected")

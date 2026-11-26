@@ -1220,6 +1220,13 @@
     "selectPaint",
     "selectWindow",
     "showBSDLGenerator",
-    "traceparts_insert"
+    "traceparts_insert",
+    "__fms_pivot_auto__",
+    "__fms_pivot_body__",
+    "__fms_pivot_origin__",
+    "__fms_pivot_camera__",
+    "__fms_pivot_point__",
+    "__fms_hold_pan__",
+    "__fms_hold_vertical__"
   ]
 }

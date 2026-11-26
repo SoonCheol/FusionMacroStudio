@@ -55,7 +55,7 @@ class Hook:
     def set_mapping(self, mapping):
         with self.lock:
             self.press.cancel()
-            self.direct.cancel()
+            self.direct.reset()
             self.mapping = mapping
             self.generation += 1
     def tick(self):
@@ -80,16 +80,24 @@ class Hook:
                         now = time.monotonic()
                         if msg in (0x100,0x104):
                             mods = modifiers() if active else 0
+                            marker_before=vk in self.direct.marker_edges
                             if self.direct.down(vk,mods,now,active):
+                                if not marker_before and vk in self.direct.markers:
+                                    self.trace.direct_event(self.direct.markers[vk],'down',active,now)
                                 return 1
                             self.trace.observe(vk,mods,True,active,self.mapping,now)
                             action = self.mapping.get((mods,vk)) if active else None
                             if self.press.down(vk,action,now):
                                 return 1
                         elif msg in (0x101,0x105):
+                            marker=self.direct.markers.get(vk)
                             consume, cmd = self.direct.up(vk,now,active)
                             if consume:
+                                if marker:
+                                    self.trace.direct_event(marker,'up',active,now)
                                 if cmd:
+                                    if cmd.startswith('__fms_'):
+                                        self.trace.direct_event(cmd,'decoded',active,now)
                                     self.dispatch(cmd,self.generation)
                                 return 1
                             self.trace.observe(vk,0,False,active,self.mapping,now)
