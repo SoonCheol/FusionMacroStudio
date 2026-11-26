@@ -2,7 +2,7 @@ name: Validate and deploy Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', 'addin/**', 'tests/browser-smoke.mjs', '.github/workflows/pages.yml']
+    paths: ['site/**', 'addin/**', 'desktop/**', 'tests/browser-smoke.mjs', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,7 +22,43 @@ jobs:
       - name: Test installer on Windows PowerShell 5.1
         shell: powershell
         run: ./addin/setup.ps1 -SelfTest
+  desktop:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test standalone editor storage and syntax
+        shell: pwsh
+        run: |
+          node --check desktop/main.cjs
+          node --check desktop/preload.cjs
+          node --test desktop/storage.test.cjs
+      - name: Package Windows editor and bundled add-in
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath site -Destination desktop/site -Recurse
+          New-Item -ItemType Directory -Path desktop/addin-package | Out-Null
+          Copy-Item -LiteralPath addin/setup.ps1 -Destination desktop/addin-package
+          Copy-Item -LiteralPath addin/FusionMacroStudio -Destination desktop/addin-package/FusionMacroStudio -Recurse
+          Copy-Item -LiteralPath site -Destination desktop/addin-package/FusionMacroStudio/web -Recurse
+          Set-Location desktop
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+          npm run dist
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
+          if (!(Test-Path dist/latest.yml)) { throw 'Missing desktop update metadata' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FusionMacroStudio-Windows
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
   validate:
+    needs: desktop
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +114,10 @@ jobs:
         with:
           name: FusionMacroStudio-web
           path: site
+      - uses: actions/download-artifact@v4
+        with:
+          name: FusionMacroStudio-Windows
+          path: site/downloads/desktop
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

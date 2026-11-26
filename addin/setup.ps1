@@ -1,11 +1,11 @@
 ﻿# FusionMacroStudio only. No admin rights required. Keep other add-ins intact.
-param([switch]$SelfTest,[switch]$AutomaticUpdate,[int]$WaitForPid=0,[string]$ExpectedVersion='',[switch]$RestartFusion,[switch]$RequestClose,[switch]$Handshake)
+param([switch]$SelfTest,[switch]$AutomaticUpdate,[int]$WaitForPid=0,[string]$ExpectedVersion='',[switch]$RestartFusion,[switch]$RequestClose,[switch]$Handshake,[switch]$DesktopStatus,[switch]$DesktopInstall)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.27'
+$packageVersion = '0.4.0'
 $required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py','direct_codes.py','updater.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
 function Read-Manifest([string]$path) {
@@ -96,6 +96,42 @@ function Install-Package {
     }
     # Keep the previous version as a private local backup, outside AddIns.
     if ($moved) { Write-Host "Previous add-in: $old" }
+}
+if ($DesktopStatus -or $DesktopInstall) {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $target = $null
+    try { $target = Get-Target } catch { if ($DesktopInstall) { throw } }
+    $installed = $null
+    if ($target -and (Test-Path (Join-Path $target 'FusionMacroStudio.manifest'))) {
+        $installed = (Read-Manifest (Join-Path $target 'FusionMacroStudio.manifest')).version
+    }
+    if ($DesktopStatus) {
+        @{ready=[bool]$target;installed=$installed;running=(Test-FusionRunning)} | ConvertTo-Json -Compress
+        return
+    }
+    if ($installed -and [version]$installed -gt [version]$packageVersion) { throw 'A newer add-in is already installed.' }
+    $fusionPath = $null
+    $processes = @(Get-Process -Name 'Fusion360','Fusion' -ErrorAction SilentlyContinue)
+    if ($processes.Count -gt 0) {
+        if (!$RequestClose) { throw 'Fusion started after approval. Close Fusion or retry the installation.' }
+        foreach ($p in $processes) {
+            if (!$fusionPath) { try { $fusionPath = $p.Path } catch {} }
+            try { [void]$p.CloseMainWindow() } catch {}
+        }
+        $deadline = [DateTime]::UtcNow.AddMinutes(10)
+        while (Test-FusionRunning) {
+            if ([DateTime]::UtcNow -ge $deadline) { throw 'Fusion did not close. Save work and retry.' }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    Install-Package
+    $restartError = ''
+    if ($RestartFusion -and $fusionPath) {
+        try { Start-Process -FilePath $fusionPath -WorkingDirectory (Split-Path $fusionPath -Parent) -ErrorAction Stop }
+        catch { $restartError = 'Fusion 자동 재실행 실패. 직접 실행해 주세요.' }
+    }
+    @{version=$packageVersion;restartError=$restartError} | ConvertTo-Json -Compress
+    return
 }
 if ($AutomaticUpdate) {
     New-Item -ItemType Directory -Path $homeDir -Force | Out-Null

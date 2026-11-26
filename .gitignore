@@ -8,3 +8,8 @@ __pycache__/
 .env.*
 keypad-profile*.json
 profiles/
+
+/desktop/node_modules/
+/desktop/dist/
+/desktop/site/
+/desktop/addin-package/

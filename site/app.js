@@ -3,7 +3,7 @@ import {commandBinding,directIndex,validateCodes,HOLD_MARKERS,FAST_CAMERA,KNOB_M
 import {putAsset,loadAssets} from './assets.js';
 import {iconUrl,iconKind,referenceIcons} from './command-icons.js';
 import {setWordLabel,fitLabels,watchLabels} from './word-labels.js';
-const $=id=>document.getElementById(id), store='fusion-macro-studio.v1';let profile=blank(),layer=0,selected=null,chosen=null,language='ko',area='',panel='',commands=[],tree=[],overlay=null,orientation='normal',pending=new Map(),busy=false,readReady=false,viewReady=false,restoreStaged=false;const localMode=location.origin==='http://127.0.0.1:18472';let syncDirty=false,revision='',localReady=!localMode;const icons=new Map();let catalog;let codeIds=[],codeMap=new Map(),codeReady=false;let imported=[],allMode=false,visibleLimit=400;
+const $=id=>document.getElementById(id), store='fusion-macro-studio.v1';let profile=blank(),layer=0,selected=null,chosen=null,language='ko',area='',panel='',commands=[],tree=[],overlay=null,orientation='normal',pending=new Map(),busy=false,readReady=false,viewReady=false,restoreStaged=false;const desktopMode=!!window.fmsDesktop;const localMode=desktopMode||location.origin==='http://127.0.0.1:18472';let syncDirty=false,revision='',localReady=!localMode;const icons=new Map();let catalog;let codeIds=[],codeMap=new Map(),codeReady=false;let imported=[],allMode=false,visibleLimit=400;
 const cameraCommands=[['fit','전체 보기','Fit view'],['zoom_in','확대','Zoom in'],['zoom_out','축소','Zoom out'],['orbit_left','왼쪽 오비트','Orbit left'],['orbit_right','오른쪽 오비트','Orbit right'],['orbit_up','위 오비트','Orbit up'],['orbit_down','아래 오비트','Orbit down'],['pan_left','왼쪽 팬','Pan left'],['pan_right','오른쪽 팬','Pan right'],['pan_up','위쪽 팬','Pan up'],['pan_down','아래쪽 팬','Pan down'],['pivot_auto','회전 중심 자동','Pivot auto'],['pivot_body','선택 바디 중심','Selected body pivot'],['pivot_origin','원점 중심','Origin pivot'],['pivot_camera','카메라 중심','Camera pivot'],['pivot_point','선택 위치 중심','Pick pivot'],['hold_pan','누른 채 회전: 팬','Hold to pan'],['hold_vertical','누른 채 회전: 상하','Hold vertical orbit']].map(([id,name,en])=>({id:'__fms_'+id+'__',name,en,description:'Fusion Macro Studio camera action'}));let cameraOnly=false;const knobViews=Array.from({length:3},()=>[false,false,false]);let selectedHeld=false;
 try{let p=JSON.parse(localStorage.getItem(store)||'null');if(p)profile=validProfile(p);for(const c of JSON.parse(localStorage.getItem(store+'.pending')||'[]')){try{reports(c.layer,c.slot,c.binding);if(JSON.stringify(profile.layers[c.layer].bindings[c.slot])===JSON.stringify(c.binding))pending.set(c.layer+':'+c.slot,c)}catch{}}syncDirty=localMode&&localStorage.getItem(store+'.syncDirty')==='1';revision=localStorage.getItem(store+'.revision')||'';orientation=localStorage.getItem(store+'.orientation')||'normal'}catch{}
 function persist(){try{localStorage.setItem(store,JSON.stringify(profile));localStorage.setItem(store+'.pending',JSON.stringify([...pending.values()]));if(localMode){localStorage.setItem(store+'.syncDirty',syncDirty?'1':'0');localStorage.setItem(store+'.revision',revision)}}catch(e){log('브라우저 저장 실패: '+e.message)}}
@@ -53,7 +53,7 @@ function editHeld(slot,c){
 }
 function assign(slot,c,held=false){
  if(held){editHeld(slot,c);return;}
-if(busy||!localReady||!viewReady||!readReady||!codeReady||!c)return;const l=profile.layers[layer],pair=pairInfo(l.bindings[slot],codeIds);if(KNOB_MARKERS.includes(c.id)){state('누름 감지는 자동 배정됩니다');return}if([17,20,23].includes(slot)&&pairedKnob(l,(slot-17)/3)){state('누른 채 좌우 명령을 먼저 제거해야 누르기 동작을 변경할 수 있습니다');return}if(pair?.held){if(!pairEligible(c.id,codeIds)){const message='고정 코드표에 등록된 실행 명령만 사용할 수 있습니다.';state(message);alert(message);return;}stagePair(slot,c.id,pair.held);selected=slot;selectedHeld=false;renderKeys();return;}const index=codeMap.get(c.id);if(HOLD_MARKERS.includes(c.id)&&![17,20,23].includes(slot)){state('누른 채 회전 전환은 노브 누르기 슬롯에만 등록할 수 있습니다');return;}if(!localMode&&index===undefined){state('고정 코드표에 없는 명령 · 로컬 호환 편집기에서만 등록 가능');return;}const old=profile.layers[layer].fusion[slot];if((old&&old.id!==c.id||!old&&bindingName(profile.layers[layer].bindings[slot])!=='미설정')&&!confirm('이 슬롯의 기존 설정을 교체할까요?'))return;profile.layers[layer].fusion[slot]={id:c.id,name:c.name};setPending(slot,localMode&&!c.id.startsWith('__fms_')?trigger(layer,slot):commandBinding(index,codeIds));selected=slot;selectedHeld=false;renderKeys()}
+if(busy||!localReady||!viewReady||!readReady||!codeReady||!c)return;const l=profile.layers[layer],pair=pairInfo(l.bindings[slot],codeIds);if(KNOB_MARKERS.includes(c.id)){state('누름 감지는 자동 배정됩니다');return}if([17,20,23].includes(slot)&&pairedKnob(l,(slot-17)/3)){state('누른 채 좌우 명령을 먼저 제거해야 누르기 동작을 변경할 수 있습니다');return}if(pair?.held){if(!pairEligible(c.id,codeIds)){const message='고정 코드표에 등록된 실행 명령만 사용할 수 있습니다.';state(message);alert(message);return;}stagePair(slot,c.id,pair.held);selected=slot;selectedHeld=false;renderKeys();return;}const index=codeMap.get(c.id);if(HOLD_MARKERS.includes(c.id)&&![17,20,23].includes(slot)){state('누른 채 회전 전환은 노브 누르기 슬롯에만 등록할 수 있습니다');return;}if(!localMode&&index===undefined){state('고정 코드표에 없는 명령 · 로컬 호환 편집기에서만 등록 가능');return;}const old=profile.layers[layer].fusion[slot];if((old&&old.id!==c.id||!old&&bindingName(profile.layers[layer].bindings[slot])!=='미설정')&&!confirm('이 슬롯의 기존 설정을 교체할까요?'))return;profile.layers[layer].fusion[slot]={id:c.id,name:c.name};setPending(slot,localMode&&!desktopMode&&!c.id.startsWith('__fms_')?trigger(layer,slot):commandBinding(index,codeIds));selected=slot;selectedHeld=false;renderKeys()}
 function decorate(el,slot,held=false){el.classList.toggle('selected',selected===slot&&selectedHeld===held);el.onclick=()=>{if(!busy&&viewReady&&readReady){selected=slot;selectedHeld=held;renderKeys()}};el.ondragover=e=>{if(!busy&&viewReady&&readReady&&e.dataTransfer.types.includes('application/x-fusion-macro-command')){e.preventDefault();e.dataTransfer.dropEffect='copy';el.classList.add('drop-over')}};el.ondragleave=()=>el.classList.remove('drop-over');el.ondrop=e=>{e.preventDefault();el.classList.remove('drop-over');if(busy)return;const id=e.dataTransfer.getData('application/x-fusion-macro-command');const c=commands.find(x=>x.id===id);if(c)try{assign(slot,c,held)}catch(err){state(err.message);log(err.message);alert('등록 실패: '+err.message)}}}
 function heldPreview(l,slot,mode){
  if(!viewReady)return null;const pair=pairInfo(l.bindings[slot],codeIds);if(pair)return cameraMeta(pair.held);if(!HOLD_MARKERS.includes(mode))return null;
@@ -101,7 +101,7 @@ function buildTree(){const m=new Map();for(const x of catalog.entries){if(!m.has
 function tabs(el,items,current,kind,change){el.replaceChildren();el.style.setProperty('--columns',String(Math.max(9,items.length)));for(const x of items){let b=document.createElement('button');const name=document.createElement('span');name.className='menu-name';setWordLabel(name,window.FusionMenuTree.localizedLabel(x,kind,language,overlay));b.append(name);b.title=name.textContent;b.classList.toggle('active',x.key===current);b.onclick=()=>change(x.key);el.append(b)}}
 function detail(c){$('detailTitle').textContent=commandName(c);$('detailBody').textContent='ID: '+c.id+'\n한국어: '+c.name+'\nEnglish: '+(c.en||'미수집')+'\n'+(c.description||'설명 미수집');$('detail').showModal()}
 function renderCommands(){if(!tree.length)return;if(!tree.some(t=>t.key===area))area=tree[0].key;const t=tree.find(x=>x.key===area);const panels=[...t.children.values()];if(!panels.some(x=>x.key===panel))panel=panels[0]?.key||'';tabs($('workspaces'),tree,area,'tab',k=>{area=k;panel='';cameraOnly=false;allMode=false;renderCommands()});tabs($('menus'),panels,panel,'panel',k=>{panel=k;cameraOnly=false;allMode=false;renderCommands()});let q=$('search').value.trim().toLowerCase();let p=t.children.get(panel);let items=cameraOnly&&!q?cameraCommands:allMode&&!q?commands:q?commands.filter(c=>[c.id,c.name,c.en].some(x=>String(x||'').toLowerCase().includes(q))):p?window.FusionMenuTree.descendants(p):[];$('path').textContent=cameraOnly&&!q?'시점 제어':allMode&&!q?'전체 명령':q?'전체 명령 검색':t.name+' / '+(p?.name||'');$('count').textContent=items.length+'개';$('commands').replaceChildren();for(const c of items.slice(0,visibleLimit)){let card=document.createElement('div');card.className='command-card';card.dataset.commandId=c.id;card.tabIndex=0;card.setAttribute('role','button');card.draggable=true;card.title=c.name+'\n'+(c.en||'영문명 미수집')+'\n'+c.id+(c.description?'\n'+c.description:'');card.append(art(c.id));let n=document.createElement('span');n.className='name';setWordLabel(n,commandName(c));card.append(n);let info=document.createElement('button');info.className='info';info.textContent='ⓘ';info.title='명령 정보';info.onclick=e=>{e.stopPropagation();detail(c)};card.append(info);card.onclick=()=>{chosen=c;for(const e of $('commands').children)e.classList.toggle('selected',e===card);controls()};card.onkeydown=e=>{if(e.key==='Enter'){card.click();if(selected!==null)assign(selected,c,selectedHeld)}};card.ondragstart=e=>{e.dataTransfer.setData('application/x-fusion-macro-command',c.id);e.dataTransfer.effectAllowed='copy'};$('commands').append(card)}$('catalogStatus').textContent='명령 '+commands.length+'개 · 로컬 원본 '+icons.size+'개 · 기본 벡터 '+new Set(commands.map(c=>iconKind(c.id,c))).size+'종';$('more').hidden=items.length<=visibleLimit;fitLabels()}
-$('connect').onclick=()=>run(async()=>{readReady=false;viewReady=false;selected=null;connecting=true;renderKeys();state('장치 목록에서 USB Composite Device를 선택하고 연결하세요.');try{await device.connect();state('연결됨 · 읽기 필요')}catch(e){state(e.name==='NotFoundError'?'연결 취소 또는 장치 없음':e.message);log(e.message)}finally{connecting=false;updateConnection()}});$('read').onclick=()=>run(async()=>{const discard=pending.size&&!restoreStaged;if(discard&&!confirm('이전 미전송 변경을 폐기하고 키보드의 실제 설정을 읽을까요? 취소하면 이번 읽기를 중단합니다.'))return;readReady=false;viewReady=false;selected=null;renderKeys();const raw=await device.read();if(!completeRead(raw))throw Error('전체 63 슬롯 읽기 실패 · 편집 데이터 보존, 쓰기 중단');await putAsset({id:'device-backup',value:{format:'fusion-macro-studio-device-backup-v1',created:new Date().toISOString(),layers:raw.map(m=>[...m].map(([slot,a])=>({slot,raw:[...a]})))}});if(discard){pending.clear();if(localMode){const current=await localApi('profile');profile=current.profile?validProfile(current.profile):blank();revision=current.revision;syncDirty=false;}}for(let i=0;i<3;i++){let l=profile.layers[i];for(const [slot,a] of raw[i]){if(pending.has(i+':'+slot))continue;let b=readBinding(a);if(b)l.bindings[slot]=b;else delete l.bindings[slot];const direct=directMeta(b);if(direct){l.fusion[slot]={id:direct.id,name:direct.name}}else if(l.fusion[slot]&&(!localMode||!sameKey(a,trigger(i,slot)))){delete l.fusion[slot];if(localMode)syncDirty=true}}}readReady=true;viewReady=true;restoreStaged=false;persist();state('읽기 완료 · '+raw.reduce((n,m)=>n+m.size,0)+'/63 응답')});
+$('connect').onclick=()=>run(async()=>{readReady=false;viewReady=false;selected=null;connecting=true;renderKeys();state(desktopMode?'USB 장치 검색 중':'장치 목록에서 USB Composite Device를 선택하고 연결하세요.');try{await device.connect();state('연결됨 · 읽기 필요')}catch(e){state(e.name==='NotFoundError'?'연결 취소 또는 장치 없음':e.message);log(e.message)}finally{connecting=false;updateConnection()}});$('read').onclick=()=>run(async()=>{const discard=pending.size&&!restoreStaged;if(discard&&!confirm('이전 미전송 변경을 폐기하고 키보드의 실제 설정을 읽을까요? 취소하면 이번 읽기를 중단합니다.'))return;readReady=false;viewReady=false;selected=null;renderKeys();const raw=await device.read();if(!completeRead(raw))throw Error('전체 63 슬롯 읽기 실패 · 편집 데이터 보존, 쓰기 중단');await putAsset({id:'device-backup',value:{format:'fusion-macro-studio-device-backup-v1',created:new Date().toISOString(),layers:raw.map(m=>[...m].map(([slot,a])=>({slot,raw:[...a]})))}});if(discard){pending.clear();if(localMode){const current=await localApi('profile');profile=current.profile?validProfile(current.profile):blank();revision=current.revision;syncDirty=false;}}for(let i=0;i<3;i++){let l=profile.layers[i];for(const [slot,a] of raw[i]){if(pending.has(i+':'+slot))continue;let b=readBinding(a);if(b)l.bindings[slot]=b;else delete l.bindings[slot];const direct=directMeta(b);if(direct){l.fusion[slot]={id:direct.id,name:direct.name}}else if(l.fusion[slot]&&(!localMode||!sameKey(a,trigger(i,slot)))){delete l.fusion[slot];if(localMode)syncDirty=true}}}readReady=true;viewReady=true;restoreStaged=false;persist();state('읽기 완료 · '+raw.reduce((n,m)=>n+m.size,0)+'/63 응답')});
 $('write').onclick=()=>run(async()=>{readReady=false;const result=await device.write([...pending.values()],async raw=>{await putAsset({id:'before-write-backup',value:{format:'fusion-macro-studio-device-backup-v1',created:new Date().toISOString(),layers:raw.map(m=>[...m].map(([slot,a])=>({slot,raw:[...a]})))}})});if(!result){readReady=true;return}if(!result.complete||result.unexpected.length){readReady=false;viewReady=false;selected=null;state('재읽기 이상 · 미전송 변경 유지 · 장치를 다시 읽으세요');log('재읽기 누락 또는 변경하지 않은 슬롯 불일치 '+result.unexpected.length+'개');return}const bad=new Set(result.failed.map(x=>x.layer+':'+x.slot));for(const k of pending.keys())if(!bad.has(k))pending.delete(k);readReady=!result.failed.length;viewReady=readReady;if(!viewReady)selected=null;const summary=result.failed.length?'재읽기 불일치 '+result.failed.length+'개 · 다시 읽기 필요':'쓰기 및 전체 슬롯 재읽기 확인 '+result.changed+'개';state(summary);if(localMode&&!result.failed.length&&!pending.size){syncDirty=true;persist();await syncProfile(summary)}else persist()});
 if(navigator.hid)navigator.hid.addEventListener('disconnect',e=>{if(e.device===device.dev){device.verified=false;readReady=false;viewReady=false;selected=null;state('연결 해제');renderKeys()}});
 $('save').onclick=()=>{if(!viewReady)return;let blob=new Blob([JSON.stringify(profile,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='fusion-macro-profile.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
@@ -142,6 +142,7 @@ const split=$('split');function resize(x){let w=$('main').getBoundingClientRect(
 async function downloadBackup(id){try{let saved=(await loadAssets()).find(x=>x.id===id);if(!saved)throw Error('장치 읽기 후 백업을 받을 수 있습니다');const u=URL.createObjectURL(new Blob([JSON.stringify(saved.value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='fusion-macro-'+id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}catch(e){state(e.message)}}
 $('backup').onclick=()=>downloadBackup('device-backup');$('beforeWriteBackup').onclick=()=>downloadBackup('before-write-backup');
 async function localApi(path,body){
+ if(desktopMode)return window.fmsDesktop.api(path,body);
  const response=await fetch('/api/'+path,{cache:'no-store',headers:{'X-FMS-Local':'1',...(body?{'Content-Type':'application/json'}:{})},...(body?{method:'POST',body:JSON.stringify(body)}:{})});
  if(!response.ok){let info=await response.json().catch(()=>({}));throw Error(info.error||'로컬 연결 오류 '+response.status)}
  return response.json();
@@ -152,6 +153,7 @@ async function syncProfile(summary){
   const saved=await localApi('profile',{profile:legacy,revision});revision=saved.revision;persist();
   for(let i=0;i<30;i++){
    const current=await localApi('status');
+   if(desktopMode&&current.state!=='running'){syncDirty=false;persist();state(summary+' · Fusion 설정 저장 완료');return;}
    if(current.state==='running'&&current.profile==='loaded'&&current.profile_revision===revision){
     syncDirty=false;persist();state(summary+' · Fusion 자동 반영 '+current.mapped+'개');return;
    }
@@ -161,7 +163,6 @@ async function syncProfile(summary){
  }catch(e){syncDirty=true;persist();state(summary+' · Fusion 반영 실패: '+e.message+' · 쓰기로 재시도');log(e.message)}
 }
 if(localMode){
- $('publicUpdateBar').hidden=true;
  $('orbitSettings').style.display='';
  const orbitSelect=$('orbitMode'),orbitStatus=$('orbitModeStatus');
  localApi('orbit-mode').then(data=>{orbitSelect.value=data.mode;orbitSelect.disabled=false;orbitStatus.textContent=''}).catch(e=>{orbitStatus.textContent='회전 설정 조회 실패: '+e.message});
@@ -171,6 +172,19 @@ if(localMode){
   catch(e){orbitStatus.textContent='저장 실패: '+e.message;try{orbitSelect.value=(await localApi('orbit-mode')).mode}catch{}}
   finally{orbitSelect.disabled=false}
  };
+ if(desktopMode){
+  $('desktopUpdateBar').hidden=false;
+  const api=window.fmsDesktop;
+  let info={state:'idle'};
+  function safe(){if(busy||pending.size||syncDirty){$('desktopMessage').textContent='미전송 변경을 먼저 기기에 쓰세요.';return false}return true}
+  function display(d){info=d;$('desktopVersion').textContent='현재 '+d.current+' · 최신 '+(d.latest||'확인 전');$('desktopCheck').disabled=['checking','downloading','ready'].includes(d.state);$('desktopInstall').disabled=!['available','ready'].includes(d.state);$('desktopInstall').textContent=d.state==='ready'?'설치':'업데이트';$('desktopProgress').hidden=!['downloading','ready'].includes(d.state);$('desktopProgress').value=d.progress||0;$('desktopMessage').textContent=({checking:'확인 중',available:'새 버전 사용 가능',current:'최신 버전',downloading:'다운로드 '+d.progress+'%',ready:'다운로드 완료',error:'업데이트 실패: '+d.error})[d.state]||''}
+  async function action(a){try{display(await api.update(a))}catch(e){$('desktopMessage').textContent=e.message}}
+  api.onUpdate(display);
+  $('desktopCheck').onclick=()=>action('check');
+  $('desktopInstall').onclick=()=>{if(!safe())return;if(info.state==='ready'){if(confirm('업데이트를 설치하고 프로그램을 다시 실행할까요?'))action('install')}else action('download')};
+  $('manageAddin').onclick=()=>{if(safe())api.manageAddin().catch(e=>{$('desktopMessage').textContent=e.message})};
+  action('status');
+ }else{
  $('updateBar').hidden=false;
  let updatePolling=false,updateState='idle',updateData=null,closeApproved=false;
  function showUpdate(data){
@@ -231,6 +245,7 @@ if(localMode){
  $('updateLater').onclick=()=>$('updateConfirm').close();
  $('updateNow').onclick=()=>{if(!updateSafe()){$('updateConfirm').close();return;}closeApproved=true;$('updateConfirm').close();updateAction('install')};
  updateAction(null);
+ }
  $('knobTrace').hidden=false;
  $('startTrace').onclick=async()=>{
   const button=$('startTrace'),out=$('traceResult');button.disabled=true;
@@ -250,7 +265,6 @@ if(localMode){
 }
 async function initLocal(){
  if(!localMode)return;
- $('setup').hidden=true;
  try{
   const current=await localApi('profile');
   if(!pending.size&&!syncDirty){
@@ -259,8 +273,8 @@ async function initLocal(){
   }else if(revision!==current.revision){
    throw Error('로컬 프로필이 다른 곳에서 변경됨 · 현재 편집을 저장 후 사이트 데이터를 정리하고 다시 열어야 합니다');
   }
-  localReady=true;persist();state('Fusion 로컬 연결 · 키보드 연결 및 읽기 필요');
- }catch(e){state('Fusion 로컬 연결 실패: '+e.message);log(e.message)}
+  localReady=true;persist();state(desktopMode?'':'Fusion 로컬 연결 · 키보드 연결 및 읽기 필요');
+ }catch(e){state((desktopMode?'프로필 불러오기 실패: ':'Fusion 로컬 연결 실패: ')+e.message);log(e.message)}
  renderKeys();
 }
 
