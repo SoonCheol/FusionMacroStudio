@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {inputSignature,compareInputs} from './input-comparison.js';
+test('USB and Bluetooth signatures compare input order, modifiers and edge',()=>{const e={type:'keydown',code:'F13',key:'F13',ctrlKey:true};const a=inputSignature(e),b=inputSignature({...e,type:'keyup'});assert.match(compareInputs([a,b],[a,b]),/일치/);assert.match(compareInputs([a,b],[b,a]),/1번째/);assert.match(compareInputs([a,b],[{...a,mods:0},b]),/1번째/);assert.match(compareInputs([a],[]),/필요/)});

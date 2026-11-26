@@ -3,6 +3,7 @@ import {commandBinding,directIndex,validateCodes,HOLD_MARKERS,FAST_CAMERA,KNOB_M
 import {putAsset,loadAssets} from './assets.js';
 import {iconUrl,iconKind,referenceIcons} from './command-icons.js';
 import {setWordLabel,fitLabels,watchLabels} from './word-labels.js';
+import {setupInputComparison} from './input-comparison.js';
 const $=id=>document.getElementById(id), store='fusion-macro-studio.v1';let profile=blank(),layer=0,selected=null,chosen=null,language='ko',area='',panel='',commands=[],tree=[],overlay=null,orientation='normal',pending=new Map(),busy=false,readReady=false,viewReady=false,restoreStaged=false;const desktopMode=!!window.fmsDesktop;const localMode=desktopMode||location.origin==='http://127.0.0.1:18472';let syncDirty=false,revision='',localReady=!localMode;const icons=new Map();let catalog;let codeIds=[],codeMap=new Map(),codeReady=false;let imported=[],allMode=false,visibleLimit=400;
 const cameraCommands=[['fit','전체 보기','Fit view'],['zoom_in','확대','Zoom in'],['zoom_out','축소','Zoom out'],['orbit_left','왼쪽 오비트','Orbit left'],['orbit_right','오른쪽 오비트','Orbit right'],['orbit_up','위 오비트','Orbit up'],['orbit_down','아래 오비트','Orbit down'],['pan_left','왼쪽 팬','Pan left'],['pan_right','오른쪽 팬','Pan right'],['pan_up','위쪽 팬','Pan up'],['pan_down','아래쪽 팬','Pan down'],['pivot_auto','회전 중심 자동','Pivot auto'],['pivot_body','선택 바디 중심','Selected body pivot'],['pivot_origin','원점 중심','Origin pivot'],['pivot_camera','카메라 중심','Camera pivot'],['pivot_point','선택 위치 중심','Pick pivot'],['hold_pan','누른 채 회전: 팬','Hold to pan'],['hold_vertical','누른 채 회전: 상하','Hold vertical orbit']].map(([id,name,en])=>({id:'__fms_'+id+'__',name,en,description:'Fusion Macro Studio camera action'}));let cameraOnly=false;const knobViews=Array.from({length:3},()=>[false,false,false]);let selectedHeld=false,legacyOrbitMode="constrained";
 try{let p=JSON.parse(localStorage.getItem(store)||'null');if(p)profile=validProfile(p);for(const c of JSON.parse(localStorage.getItem(store+'.pending')||'[]')){try{reports(c.layer,c.slot,c.binding);if(JSON.stringify(profile.layers[c.layer].bindings[c.slot])===JSON.stringify(c.binding))pending.set(c.layer+':'+c.slot,c)}catch{}}syncDirty=localMode&&localStorage.getItem(store+'.syncDirty')==='1';revision=localStorage.getItem(store+'.revision')||'';orientation=localStorage.getItem(store+'.orientation')||'normal'}catch{}
@@ -18,9 +19,17 @@ function bindingName(b){if(!b)return '미설정';if(b.type==='media')return '미
 function art(id){id=orbitBase(id)||id;const el=document.createElement('img');const meta=commands.find(c=>c.id===id)||{};const original=icons.has(id);el.className='art '+(original?'original-art':'vector-art');el.src=original?icons.get(id):iconUrl(id,meta);el.alt='';el.title=original?'Fusion 로컬 원본 아이콘':Object.hasOwn(referenceIcons,id)?'공식 원본 참조 재드로잉':'미검수 임시 아이콘';el.draggable=false;return el}
 function commandName(c){const base=orbitBase(c.id);if(base)c=commands.find(x=>x.id===base)||c;return language==='en'?(c.en||c.name):c.name}
 function setPending(slot,b){if(localMode)syncDirty=true;profile.layers[layer].bindings[slot]=b;pending.set(layer+':'+slot,{layer,slot,binding:b});persist()}
-function directMeta(b){const i=directIndex(b,codeIds),id=i===null?null:codeIds[i];if(KNOB_MARKERS.includes(id))return {id,name:'누름 감지 (자동)'};return id?(cameraMeta(id)||{id,name:overlay?.commands?.[id]||id}):null}
+function directMeta(b){const i=directIndex(b,codeIds),id=i===null?null:codeIds[i];if(KNOB_MARKERS.includes(id))return {id,name:'누름 감지'};return id?(cameraMeta(id)||{id,name:overlay?.commands?.[id]||id}):null}
 function pairSlot(slot){return slot>=16&&slot<=24&&(slot-16)%3!==1}
 function pairedKnob(l,k){return [16+3*k,18+3*k].some(s=>pairInfo(l.bindings[s],codeIds)?.held)}
+function pressSlot(s){return [17,20,23].includes(s)}
+function internalPress(id){return KNOB_MARKERS.includes(id)||HOLD_MARKERS.includes(id)}
+function ordinaryPress(l,k){const s=17+3*k,id=l.fusion[s]?.id;if(internalPress(id))return false;return !!id||bindingName(l.bindings[s])!=='미설정'}
+function emptyBinding(){return {type:'key',steps:[{mods:0,code:0}],delay:0}}
+function restorePress(l,k){const slot=17+3*k;delete l.fusion[slot];if(pairedKnob(l,k)){const id=KNOB_MARKERS[k];l.fusion[slot]={id,name:'누름 감지'};setPending(slot,commandBinding(codeMap.get(id),codeIds))}else setPending(slot,emptyBinding())}
+function preserveLegacyHeld(l,k){const marker=l.fusion[17+3*k]?.id;if(!HOLD_MARKERS.includes(marker))return;for(const s of [16+3*k,18+3*k]){const held=heldPreview(l,s,marker);if(held)stagePair(s,l.fusion[s]?.id||null,held.id)}}
+function visibleCommand(l,slot,held){const c=held?heldPreview(l,slot,l.fusion[17+3*Math.floor((slot-16)/3)]?.id):l.fusion[slot];return c&&!internalPress(c.id)?c:null}
+function visibleBinding(l,slot){return internalPress(l.fusion[slot]?.id)||pairInfo(l.bindings[slot],codeIds)?'미설정':bindingName(l.bindings[slot])}
 function cameraMeta(id){const base=orbitBase(id),c=commands.find(c=>c.id===(base||id));return c?{...c,id}:null}
 function viewCommand(l,slot,held){return held?heldPreview(l,slot,l.fusion[17+3*Math.floor((slot-16)/3)]?.id)?.id:l.fusion[slot]?.id}
 function knobOrbit(l,k,held){return [16+3*k,18+3*k].map(s=>viewCommand(l,s,held)).filter(id=>orbitBase(id))}
@@ -41,7 +50,7 @@ function toggleOrbit(k,held){
   if(legacy&&!other&&a===normal)continue;
   stagePair(slot,a,b);
  }
- if(legacy&&pairedKnob(l,k)){l.fusion[press]={id:KNOB_MARKERS[k],name:'누름 감지 (자동)'};setPending(press,commandBinding(codeMap.get(KNOB_MARKERS[k]),codeIds))}
+ if(legacy&&pairedKnob(l,k)){l.fusion[press]={id:KNOB_MARKERS[k],name:'누름 감지'};setPending(press,commandBinding(codeMap.get(KNOB_MARKERS[k]),codeIds))}
  selected=null;renderKeys();state('노브 '+(k+1)+' · '+(next==='free'?'자유 오비트':'제한 오비트')+' · 쓰기 필요');
 }
 function stagePair(slot,normal,held){
@@ -55,8 +64,8 @@ function editHeld(slot,c){
  const k=Math.floor((slot-16)/3),press=17+3*k,l=profile.layers[layer],mode=l.fusion[press]?.id;
  let normal=l.fusion[slot]?.id||null;const old=heldPreview(l,slot,mode);
  if(!pairEligible(normal,codeIds)||(!normal&&bindingName(l.bindings[slot])!=='미설정'&&!pairInfo(l.bindings[slot],codeIds))){if(!c)return;if(!confirm('이 방향의 기존 일반 키 설정은 고정 명령으로 변환할 수 없습니다. 일반 회전을 미설정으로 바꾸고 누른 채 명령을 등록할까요?')){state('등록 취소 · 기존 설정 유지');return;}normal=null;}
- if(c&&mode!==KNOB_MARKERS[k]&&!HOLD_MARKERS.includes(mode)&&bindingName(l.bindings[press])!=='미설정'&&!confirm('독립 누른 채 회전을 사용하려면 노브 누르기 동작을 누름 감지로 교체해야 합니다. 교체할까요?'))return;
- if(old&&old.id!==c?.id&&!confirm('누른 채 회전의 기존 명령을 교체할까요?'))return;
+ if(ordinaryPress(l,k))return;
+ if(c&&old&&old.id!==c.id&&!confirm('누른 채 회전의 기존 명령을 교체할까요?'))return;
  // Convert the old preset for both directions, preserving any previously displayed camera actions.
  if(HOLD_MARKERS.includes(mode)){
   const other=slot===16+3*k?18+3*k:16+3*k,prev=heldPreview(l,other,mode),n=l.fusion[other]?.id;
@@ -65,7 +74,7 @@ function editHeld(slot,c){
  stagePair(slot,normal,c?.id||null);
  if(pairedKnob(l,k)){
   if(l.fusion[press]?.id!==KNOB_MARKERS[k]){
-   l.fusion[press]={id:KNOB_MARKERS[k],name:'누름 감지 (자동)'};
+   l.fusion[press]={id:KNOB_MARKERS[k],name:'누름 감지'};
    setPending(press,commandBinding(codeMap.get(KNOB_MARKERS[k]),codeIds));
   }
  }else if(KNOB_MARKERS.includes(mode)||HOLD_MARKERS.includes(mode)){
@@ -74,9 +83,23 @@ function editHeld(slot,c){
  selected=slot;selectedHeld=true;renderKeys();state('누른 채 회전 설정 대기 · 쓰기 필요');
 }
 function assign(slot,c,held=false){
+ if(busy||!localReady||!viewReady||!readReady||!codeReady||!c)return;
  c=chooseOrbit(c,slot,held);
- if(held){editHeld(slot,c);return;}
-if(busy||!localReady||!viewReady||!readReady||!codeReady||!c)return;const l=profile.layers[layer],pair=pairInfo(l.bindings[slot],codeIds);if(KNOB_MARKERS.includes(c.id)){state('누름 감지는 자동 배정됩니다');return}if([17,20,23].includes(slot)&&pairedKnob(l,(slot-17)/3)){state('누른 채 좌우 명령을 먼저 제거해야 누르기 동작을 변경할 수 있습니다');return}if(pair?.held){if(!pairEligible(c.id,codeIds)){const message='고정 코드표에 등록된 실행 명령만 사용할 수 있습니다.';state(message);alert(message);return;}stagePair(slot,c.id,pair.held);selected=slot;selectedHeld=false;renderKeys();return;}const index=codeMap.get(c.id);if(HOLD_MARKERS.includes(c.id)&&![17,20,23].includes(slot)){state('누른 채 회전 전환은 노브 누르기 슬롯에만 등록할 수 있습니다');return;}if((desktopMode||!localMode)&&index===undefined){state('고정 코드표에 없는 명령 · 로컬 호환 편집기에서만 등록 가능');return;}const old=profile.layers[layer].fusion[slot];if((old&&old.id!==c.id||!old&&bindingName(profile.layers[layer].bindings[slot])!=='미설정')&&!confirm('이 슬롯의 기존 설정을 교체할까요?'))return;profile.layers[layer].fusion[slot]={id:c.id,name:c.name};setPending(slot,localMode&&!desktopMode&&!c.id.startsWith('__fms_')?trigger(layer,slot):commandBinding(index,codeIds));selected=slot;selectedHeld=false;renderKeys()}
+ if(held){editHeld(slot,c);return}
+ const l=profile.layers[layer],pair=pairInfo(l.bindings[slot],codeIds),old=visibleCommand(l,slot,false),index=codeMap.get(c.id),press=pressSlot(slot),k=(slot-17)/3;
+ if(KNOB_MARKERS.includes(c.id))return;
+ if(HOLD_MARKERS.includes(c.id)&&!press){state('누른 채 회전 전환은 노브 누르기 슬롯에만 등록할 수 있습니다');return}
+ if((desktopMode||!localMode)&&index===undefined){state('고정 코드표에 없는 명령');return}
+ if(pair?.held&&!pairEligible(c.id,codeIds)){alert('고정 코드표에 등록된 실행 명령만 사용할 수 있습니다.');return}
+ if(old?.id!==c.id&&(old||!old&&visibleBinding(l,slot)!=='미설정')&&!confirm('이 슬롯의 기존 설정을 교체할까요?'))return;
+ if(pair?.held){stagePair(slot,c.id,pair.held)}
+ else{
+  if(press&&!internalPress(c.id)){preserveLegacyHeld(l,k);knobViews[layer][k]=false}
+  l.fusion[slot]={id:c.id,name:c.name};
+  setPending(slot,localMode&&!desktopMode&&!c.id.startsWith('__fms_')?trigger(layer,slot):commandBinding(index,codeIds));
+ }
+ selected=slot;selectedHeld=false;renderKeys();
+}
 function decorate(el,slot,held=false){el.classList.toggle('selected',selected===slot&&selectedHeld===held);el.onclick=()=>{if(!busy&&viewReady&&readReady){selected=slot;selectedHeld=held;renderKeys()}};el.ondragover=e=>{if(!busy&&viewReady&&readReady&&e.dataTransfer.types.includes('application/x-fusion-macro-command')){e.preventDefault();e.dataTransfer.dropEffect='copy';el.classList.add('drop-over')}};el.ondragleave=()=>el.classList.remove('drop-over');el.ondrop=e=>{e.preventDefault();el.classList.remove('drop-over');if(busy)return;const id=e.dataTransfer.getData('application/x-fusion-macro-command');const c=commands.find(x=>x.id===id);if(c)try{assign(slot,c,held)}catch(err){state(err.message);log(err.message);alert('등록 실패: '+err.message)}}}
 function heldPreview(l,slot,mode){
  if(!viewReady)return null;const pair=pairInfo(l.bindings[slot],codeIds);if(pair)return cameraMeta(pair.held);if(!HOLD_MARKERS.includes(mode))return null;
@@ -91,7 +114,7 @@ function heldPreview(l,slot,mode){
 function commandCell(button,slot,held,f,kind){
  const cell=document.createElement('div');cell.className=kind+'-cell';cell.append(button);
  const remove=document.createElement('button');remove.type='button';remove.className='remove-command';remove.textContent='×';remove.title='명령 제거';remove.setAttribute('aria-label',(slot<=12?'K'+slot:'노브 '+(Math.floor((slot-16)/3)+1)+' '+(held?'누른 채 ':'')+['좌회전','누르기','우회전'][(slot-16)%3])+' 명령 제거');
- remove.disabled=busy||!viewReady||!readReady||!f||KNOB_MARKERS.includes(f.id);
+ remove.disabled=busy||!viewReady||!readReady||(!f&&(held||visibleBinding(profile.layers[layer],slot)==='미설정'));
  remove.onclick=e=>{e.stopPropagation();if(remove.disabled)return;selected=slot;selectedHeld=held;clearSelected();};
  cell.append(remove);return cell;
 }
@@ -99,8 +122,9 @@ function renderKnob(k,l){
  const box=document.createElement('div');box.className='knob';
  const dial=document.createElement('div');dial.className='dial';
  const label=document.createElement('span');label.textContent='노브 '+(k+1);label.className='hint knob-number';
+ const blocked=viewReady&&ordinaryPress(l,k);if(blocked)knobViews[layer][k]=false;
  const held=viewReady&&knobViews[layer][k],base=16+k*3,press=base+1,mode=l.fusion[press]?.id;
- const toggle=document.createElement('button');toggle.type='button';toggle.className='knob-switch';toggle.setAttribute('role','switch');toggle.setAttribute('aria-checked',String(held));toggle.setAttribute('aria-label','노브 '+(k+1)+' 일반/누른 채 회전 보기');toggle.title=held?'누른 채 회전 · 일반으로 전환':'일반 회전 · 누른 채로 전환';toggle.disabled=busy||!viewReady||!readReady;
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='knob-switch';toggle.setAttribute('role','switch');toggle.setAttribute('aria-checked',String(held));toggle.setAttribute('aria-label','노브 '+(k+1)+' 일반/누른 채 회전 보기');toggle.title=held?'누른 채 회전 · 일반으로 전환':'일반 회전 · 누른 채로 전환';toggle.disabled=busy||!viewReady||!readReady||blocked;if(blocked)toggle.title='누르기 명령 등록됨';
  for(const [cls,value] of [['switch-normal','일반'],['switch-track',''],['switch-held','누른 채']]){const span=document.createElement('span');span.className=cls;span.textContent=value;toggle.append(span)}
  toggle.onclick=()=>{knobViews[layer][k]=!held;selected=null;renderKeys();};
  const orbit=document.createElement('button');orbit.type='button';orbit.className='knob-switch orbit-switch';orbit.setAttribute('role','switch');orbit.setAttribute('aria-label','노브 '+(k+1)+' '+(held?'누른 채 ':'일반 ')+' 오비트 방식');
@@ -114,27 +138,23 @@ function renderKnob(k,l){
  const group=document.createElement('div');group.className='knob-actions';
  for(let a=0;a<3;a++){
   const slot=base+a;
-  if(held&&a===1){
-   const note=document.createElement('div');note.className='knob-hold-status';
-   note.textContent=KNOB_MARKERS.includes(mode)?'누름 감지 (자동)':HOLD_MARKERS.includes(mode)?'기존 전환 설정':'누름 감지 자동 배정';
-   group.append(note);continue;
-  }
+  if(held&&a===1){const note=document.createElement('div');note.className='knob-hold-status';note.setAttribute('aria-hidden','true');group.append(note);continue;}
   const b=document.createElement('button');b.className='knob-action';
   const glyph=document.createElement('span');glyph.textContent=held?['●↺','','●↻'][a]:['↺','●','↻'][a];b.append(glyph);
-  const f=held?heldPreview(l,slot,mode):l.fusion[slot];
+  const f=visibleCommand(l,slot,held);
   if(f)b.append(art(f.id));
   const n=document.createElement('span');n.className='name';
-  const fallback=held?'미설정':viewReady?(pairInfo(l.bindings[slot],codeIds)?'미설정':bindingName(l.bindings[slot])):'';
+  const fallback=held?'미설정':viewReady?visibleBinding(l,slot):'';
   setWordLabel(n,f?commandName(commands.find(c=>c.id===f.id)||f):fallback);b.append(n);
   b.title='노브 '+(k+1)+' '+(held?'누른 채 ':'')+['좌회전','누르기','우회전'][a]+' · '+n.textContent;b.dataset.slot=String(slot);b.dataset.held=String(held);
   decorate(b,slot,held);
   group.append(commandCell(b,slot,held,f,'knob'));
  }
  box.append(group);
- if(held)box.title='명령 드래그 · 누름 감지 자동';
+
  return box;
 }
-function renderKeys(){const l=viewReady?profile.layers[layer]:{fusion:{},bindings:{}};$('layers').replaceChildren();for(let i=0;i<3;i++){const b=document.createElement('button');b.textContent='레이어 '+(i+1);b.classList.toggle('active',i===layer);b.onclick=()=>{if(!busy){layer=i;selected=null;renderKeys()}};$('layers').append(b)}let order=slotOrder(orientation);$('keys').replaceChildren();order.forEach((slot,i)=>{let b=document.createElement('button');b.className='key';const f=l.fusion[slot],n=document.createElement('small');n.textContent='K'+slot;b.append(n);if(f)b.append(art(f.id));let name=document.createElement('span');name.className='name';setWordLabel(name,f?commandName(commands.find(c=>c.id===f.id)||f):(viewReady?bindingName(l.bindings[slot]):''));b.append(name);b.title='슬롯 '+slot+' · '+name.textContent;decorate(b,slot);$('keys').append(commandCell(b,slot,false,f,'key'))});$('knobs').replaceChildren();for(let k=0;k<3;k++)$('knobs').append(renderKnob(k,l));$('selectedTitle').textContent=selected===null?'버튼 속성':selected<=12?'K'+selected+' 속성':'노브 '+(Math.floor((selected-16)/3)+1)+' · '+(selectedHeld?'누른 채 ':'')+['좌회전','누르기','우회전'][(selected-16)%3];const meta=selected===null?null:selectedHeld?heldPreview(l,selected,l.fusion[17+3*Math.floor((selected-16)/3)]?.id):l.fusion[selected];$('selectedInfo').textContent=selected===null?'버튼 또는 노브 동작을 선택하세요.':meta?commandName(meta):selectedHeld?'미설정':bindingName(l.bindings[selected]);controls();fitLabels()}
+function renderKeys(){const l=viewReady?profile.layers[layer]:{fusion:{},bindings:{}};$('layers').replaceChildren();for(let i=0;i<3;i++){const b=document.createElement('button');b.textContent='레이어 '+(i+1);b.classList.toggle('active',i===layer);b.onclick=()=>{if(!busy){layer=i;selected=null;renderKeys()}};$('layers').append(b)}let order=slotOrder(orientation);$('keys').replaceChildren();order.forEach((slot,i)=>{let b=document.createElement('button');b.className='key';const f=l.fusion[slot],n=document.createElement('small');n.textContent='K'+slot;b.append(n);if(f)b.append(art(f.id));let name=document.createElement('span');name.className='name';setWordLabel(name,f?commandName(commands.find(c=>c.id===f.id)||f):(viewReady?bindingName(l.bindings[slot]):''));b.append(name);b.title='슬롯 '+slot+' · '+name.textContent;decorate(b,slot);$('keys').append(commandCell(b,slot,false,f,'key'))});$('knobs').replaceChildren();for(let k=0;k<3;k++)$('knobs').append(renderKnob(k,l));$('selectedTitle').textContent=selected===null?'버튼 속성':selected<=12?'K'+selected+' 속성':'노브 '+(Math.floor((selected-16)/3)+1)+' · '+(selectedHeld?'누른 채 ':'')+['좌회전','누르기','우회전'][(selected-16)%3];const meta=selected===null?null:visibleCommand(l,selected,selectedHeld);$('selectedInfo').textContent=selected===null?'버튼 또는 노브 동작을 선택하세요.':meta?commandName(meta):selectedHeld?'미설정':visibleBinding(l,selected);controls();fitLabels()}
 function buildTree(){const m=new Map();for(const x of catalog.entries){if(!m.has(x.id))m.set(x.id,{id:x.id,name:x.name,ko:x.name,en:overlay?.commands?.[x.id]||'',panel:x.panel,paths:[]})}for(const x of imported){if(!m.has(x.id))m.set(x.id,x);else if(x.description)m.get(x.id).description=x.description}for(const c of cameraCommands)m.set(c.id,c);for(const id of codeIds)if(!m.has(id)&&!KNOB_MARKERS.includes(id)&&(!orbitBase(id)||orbitBase(id)===id))m.set(id,{id,name:overlay?.commands?.[id]||id,en:overlay?.commands?.[id]||id});commands=[...m.values()];tree=window.FusionMenuTree.fromMenuCatalog(catalog,commands);renderCommands();renderKeys()}
 function tabs(el,items,current,kind,change){el.replaceChildren();el.style.setProperty('--columns',String(Math.max(9,items.length)));for(const x of items){let b=document.createElement('button');const name=document.createElement('span');name.className='menu-name';setWordLabel(name,window.FusionMenuTree.localizedLabel(x,kind,language,overlay));b.append(name);b.title=name.textContent;b.classList.toggle('active',x.key===current);b.onclick=()=>change(x.key);el.append(b)}}
 function detail(c){$('detailTitle').textContent=commandName(c);$('detailBody').textContent='ID: '+c.id+'\n한국어: '+c.name+'\nEnglish: '+(c.en||'미수집')+'\n'+(c.description||'설명 미수집');$('detail').showModal()}
@@ -158,7 +178,16 @@ $('open').onclick=()=>$('profileFile').click();$('profileFile').onchange=async e
  readReady=false;viewReady=false;restoreStaged=true;selected=null;persist();state('불러오기 완료 · 복원 대기 '+next.changes.length+'개 · 제외 '+next.skipped.length+'개 · 연결 후 읽기 → 쓰기');if(next.skipped.length)log('복원 제외: '+next.skipped.map(c=>(c.layer+1)+'층/'+c.slot).join(', '));
  });
 };
-$('assign').onclick=()=>assign(selected,chosen,selectedHeld);function clearSelected(){if(selected===null||busy||!viewReady||!readReady)return;if(selectedHeld){editHeld(selected,null);return}const l=profile.layers[layer],pair=pairInfo(l.bindings[selected],codeIds);if(pair?.held){stagePair(selected,null,pair.held);renderKeys();return}if([17,20,23].includes(selected)&&pairedKnob(l,(selected-17)/3)){state('누른 채 좌우 명령을 먼저 제거하세요');return}const wasDirect=directIndex(l.bindings[selected],codeIds)!==null;delete profile.layers[layer].fusion[selected];if(wasDirect){setPending(selected,{type:'key',steps:[{mods:0,code:0}],delay:0});renderKeys();state('명령 제거 대기 · 쓰기 필요');return}if(localMode)syncDirty=true;const key=layer+':'+selected;if(pending.has(key)){pending.delete(key);delete profile.layers[layer].bindings[selected];readReady=false;}persist();renderKeys();state('명령 매핑 제거 · 장치 입력은 유지 · 필요한 경우 다시 읽기')}
+$('assign').onclick=()=>assign(selected,chosen,selectedHeld);function clearSelected(){
+ if(selected===null||busy||!viewReady||!readReady)return;
+ if(selectedHeld){editHeld(selected,null);return}
+ const l=profile.layers[layer],slot=selected,pair=pairInfo(l.bindings[slot],codeIds);
+ if(pair?.held){stagePair(slot,null,pair.held);renderKeys();return}
+ if(pressSlot(slot)){const k=(slot-17)/3;restorePress(l,k);knobViews[layer][k]=false}
+ else{delete l.fusion[slot];setPending(slot,emptyBinding())}
+ renderKeys();state('명령 제거 대기 · 쓰기 필요');
+}
+
 for(const code of [...Array.from({length:26},(_,i)=>i+4),40,41,42,43,44,...Array.from({length:12},(_,i)=>i+58),79,80,81,82,...Array.from({length:12},(_,i)=>i+104)]){let o=document.createElement('option');o.value=code;o.textContent=keyName(code);$('keyCode').append(o)}
 function clearLayers(all){
  if(busy||!viewReady||!readReady||!device.verified)return;
@@ -171,7 +200,7 @@ function clearLayers(all){
  if(localMode)syncDirty=true;selected=null;persist();renderKeys();state('지우기 대기 · 쓰기 필요');
 }
 $('clearLayer').onclick=()=>clearLayers(false);$('clearAll').onclick=()=>clearLayers(true);
-$('setKey').onclick=()=>{if(selected===null||busy||!viewReady||!readReady||selectedHeld)return;const l=profile.layers[layer];if(pairInfo(l.bindings[selected],codeIds)?.held||[17,20,23].includes(selected)&&pairedKnob(l,(selected-17)/3)){state('누른 채 회전 설정을 먼저 제거하세요');return;}delete profile.layers[layer].fusion[selected];setPending(selected,{type:'key',steps:[{mods:0,code:Number($('keyCode').value)}],delay:0});renderKeys()};$('orientation').value=orientation;$('orientation').onchange=e=>{orientation=e.target.value;localStorage.setItem(store+'.orientation',orientation);renderKeys()};
+$('setKey').onclick=()=>{if(selected===null||busy||!viewReady||!readReady||selectedHeld)return;const l=profile.layers[layer];if(pairInfo(l.bindings[selected],codeIds)?.held){state('누른 채 회전 설정을 먼저 제거하세요');return;}if(pressSlot(selected)){const k=(selected-17)/3;preserveLegacyHeld(l,k);knobViews[layer][k]=false}delete profile.layers[layer].fusion[selected];setPending(selected,{type:'key',steps:[{mods:0,code:Number($('keyCode').value)}],delay:0});renderKeys()};$('orientation').value=orientation;$('orientation').onchange=e=>{orientation=e.target.value;localStorage.setItem(store+'.orientation',orientation);renderKeys()};
 $('camera').onclick=()=>{cameraOnly=true;allMode=false;$('search').value='';renderCommands()};$('more').onclick=()=>{visibleLimit+=400;renderCommands()};$('search').oninput=()=>{visibleLimit=400;renderCommands()};$('resetSearch').onclick=()=>{$('search').value='';cameraOnly=false;allMode=true;renderCommands()};for(const lang of ['ko','en'])$(lang).onclick=()=>{language=lang;for(const x of ['ko','en'])$(x).setAttribute('aria-pressed',String(x===lang));renderCommands();renderKeys()};$('closeDetail').onclick=()=>$('detail').close();
 $('icons').onclick=()=>$('iconFiles').click();$('iconFiles').onchange=async e=>{let added=0;try{for(const f of e.target.files){if(!/\.png$/i.test(f.name)||f.size>768*1024)continue;const id=f.name.replace(/\.png$/i,'');if(icons.has(id))URL.revokeObjectURL(icons.get(id));await putAsset({id:'icon:'+id,value:f});icons.set(id,URL.createObjectURL(f));added++}renderCommands();renderKeys();state('원본 아이콘 '+added+'개 저장')}catch(err){state('원본 아이콘 저장 실패: '+err.message)}finally{e.target.value=''}};
 $('importCatalog').onclick=()=>$('catalogFile').click();$('catalogFile').onchange=async e=>{try{let raw=JSON.parse(await e.target.files[0].text());let arr=Array.isArray(raw)?raw:raw.commands||raw.items||raw.catalog;if(!Array.isArray(arr))throw Error('지원하지 않는 카탈로그');const next=new Map(imported.map(c=>[c.id,c]));for(const v of arr){if(!v||typeof v!=='object')continue;let id=v.id||v.commandId||v.command_id,name=v.koName||v.name||v.label;if(typeof id==='string'&&typeof name==='string'&&id.length<=256&&name.length<=160)next.set(id,{id,name,en:v.englishName||v.nameEn||overlay?.commands?.[id]||'',description:typeof v.description==='string'?v.description:''})}imported=[...next.values()];await putAsset({id:'commands',value:imported});buildTree()}catch(err){$('catalogStatus').textContent=err.message}finally{e.target.value=''}};
@@ -205,7 +234,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.4.7',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.4.8',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;
@@ -317,4 +346,4 @@ async function initLocal(){
  renderKeys();
 }
 
-watchLabels();renderKeys();initLocal();Promise.all([Promise.all(['menu','english','command-codes'].map(n=>fetch('data/'+n+'.json').then(r=>{if(!r.ok)throw Error('카탈로그 로드 실패');return r.json()}))),loadAssets().catch(e=>{log('로컬 자료 저장소: '+e.message);return []})]).then(([[m,en,codes],assets])=>{catalog=m;overlay=en;codeIds=validateCodes(codes);codeMap=new Map(codeIds.map((id,i)=>[id,i]));codeReady=true;for(const item of assets){if(item.id==='commands'&&Array.isArray(item.value))imported=item.value;if(item.id.startsWith('icon:')&&item.value instanceof Blob)icons.set(item.id.slice(5),URL.createObjectURL(item.value))}buildTree()}).catch(e=>$('catalogStatus').textContent=e.message);
+setupInputComparison();watchLabels();renderKeys();initLocal();Promise.all([Promise.all(['menu','english','command-codes'].map(n=>fetch('data/'+n+'.json').then(r=>{if(!r.ok)throw Error('카탈로그 로드 실패');return r.json()}))),loadAssets().catch(e=>{log('로컬 자료 저장소: '+e.message);return []})]).then(([[m,en,codes],assets])=>{catalog=m;overlay=en;codeIds=validateCodes(codes);codeMap=new Map(codeIds.map((id,i)=>[id,i]));codeReady=true;for(const item of assets){if(item.id==='commands'&&Array.isArray(item.value))imported=item.value;if(item.id.startsWith('icon:')&&item.value instanceof Blob)icons.set(item.id.slice(5),URL.createObjectURL(item.value))}buildTree()}).catch(e=>$('catalogStatus').textContent=e.message);

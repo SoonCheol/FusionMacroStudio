@@ -77,3 +77,5 @@
 .knob-switches .orbit-switch{border-left:1px solid transparent;border-radius:6px;padding-left:2px}
 .knob-switches .switch-track{width:23px;justify-self:center}
 @media(max-width:1100px){.knob-switches .knob-switch{gap:1px;padding-inline:0;font-size:10px}}
+
+.input-capture{padding:10px;border:1px solid var(--line);border-radius:6px;min-height:34px;font-size:12px}.input-capture:focus{outline:2px solid var(--selected)}
