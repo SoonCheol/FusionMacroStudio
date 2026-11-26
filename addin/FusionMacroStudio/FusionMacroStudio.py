@@ -14,7 +14,7 @@ from .keyboard_hook import Hook, foreground
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.2.0"
+VERSION = "0.3.9"
 app = None
 handler = None
 event = None
@@ -26,17 +26,23 @@ def log(message):
     HOME.mkdir(parents=True,exist_ok=True)
     with (HOME/"addin.log").open("a",encoding="utf-8") as f:
         f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + str(message) + "\n")
-def status(state, **extra):
+def write_json(target, value):
     HOME.mkdir(parents=True,exist_ok=True)
-    target = HOME/"status.json"
-    tmp = HOME/"status.tmp"
-    tmp.write_text(json.dumps({"version":VERSION,"state":state,"pid":os.getpid(),"time":time.time(),**extra}),encoding="utf-8")
+    tmp = target.with_name(target.name + ".tmp")
+    tmp.write_text(json.dumps(value, ensure_ascii=False),encoding="utf-8")
     tmp.replace(target)
+
+def status(state, **extra):
+    write_json(HOME/"status.json", {"version":VERSION,"state":state,"pid":os.getpid(),"time":time.time(),**extra})
+
+def export_status(state, **extra):
+    write_json(HOME/"export-status.json", {"state":state,"time":time.time(),**extra})
 def enqueue(value):
     try:
         actions.put_nowait(value)
+        return True
     except queue.Full:
-        pass
+        return False
 
 def export_catalog():
     """Local only; never sends Autodesk artwork to GitHub or the web."""
@@ -68,8 +74,10 @@ def export_catalog():
                 pass
         except Exception:
             continue
-    (dest/"commands.json").write_text(json.dumps(rows,ensure_ascii=False),encoding="utf-8")
-    log("Exported %s definitions, %s local PNGs" % (len(rows),len(list(icons.glob("*.png")))))
+    write_json(dest/"commands.json", rows)
+    count = len(list(icons.glob("*.png")))
+    export_status("completed", commands=len(rows), local_pngs=count)
+    log("Exported %s definitions, %s local PNGs" % (len(rows),count))
 
 def camera_action(command):
     viewport = app.activeViewport
@@ -112,7 +120,12 @@ class Dispatch(adsk.core.CustomEventHandler):
         try:
             cmd = args.additionalInfo
             if cmd == "__fms_export__":
-                export_catalog()
+                export_status("running")
+                try:
+                    export_catalog()
+                except Exception as exc:
+                    export_status("error", message=str(exc))
+                    log(traceback.format_exc())
                 return
             if not foreground():
                 return
@@ -131,26 +144,40 @@ class Dispatch(adsk.core.CustomEventHandler):
             log(traceback.format_exc())
 
 def poll():
-    last = None
+    last = object()
     stamp = 0
+    profile_state = "missing"
+    profile_error = ""
     while not stop_event.is_set():
         try:
             path = HOME/"profile.json"
-            current = path.stat().st_mtime_ns if path.exists() else None
+            st = path.stat() if path.exists() else None
+            current = (st.st_mtime_ns, st.st_size) if st else None
             if current != last:
                 try:
-                    hook.mapping = load_mapping(json.loads(path.read_text(encoding="utf-8-sig"))) if current else {}
-                except Exception:
+                    if st and st.st_size > 8*1024*1024:
+                        raise ValueError("Profile too large")
+                    hook.mapping = load_mapping(json.loads(path.read_text(encoding="utf-8-sig"))) if st else {}
+                    profile_state = "loaded" if st else "missing"
+                    profile_error = ""
+                except Exception as exc:
                     hook.mapping = {}
-                    log("Invalid profile; mapping disabled")
+                    profile_state = "invalid"
+                    profile_error = str(exc)
+                    log("Invalid profile; mapping disabled: " + profile_error)
                 last = current
                 log("Loaded %s command mappings" % len(hook.mapping))
+                status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error)
             request = HOME/"export.request"
-            if request.exists():
-                request.unlink()
-                enqueue("__fms_export__")
+            if request.exists() and enqueue("__fms_export__"):
+                request.unlink(missing_ok=True)
+                export_status("queued")
+            if not hook.thread or not hook.thread.is_alive():
+                hook.mapping = {}
+                status("error", message=hook.error or "Keyboard hook stopped",mapped=0)
+                return
             if time.monotonic()-stamp > 3:
-                status("running",mapped=len(hook.mapping))
+                status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error)
                 stamp=time.monotonic()
             try:
                 action = actions.get(timeout=.2)

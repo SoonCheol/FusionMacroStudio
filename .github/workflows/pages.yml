@@ -39,6 +39,12 @@ jobs:
           path: browser-preview
           if-no-files-found: ignore
       - run: python -m unittest discover -s addin/tests && python -m compileall -q addin/FusionMacroStudio
+      - name: Parse PowerShell installer
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Get-Location) 'addin/setup.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { $errors | Format-List; throw 'Installer syntax error' }
       - run: mkdir -p site/downloads && cd addin && zip -r ../site/downloads/FusionMacroStudio-Addin-Setup.zip FusionMacroStudio Setup.cmd setup.ps1 README.txt -x '*/__pycache__/*'
       - uses: actions/upload-artifact@v4
         with:
