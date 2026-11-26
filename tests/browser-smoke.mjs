@@ -54,7 +54,12 @@ try{
  assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);
  assert.ok(await page.locator('#keys .key .name').first().innerText()==='');
  assert.equal(await page.locator('#connect').isEnabled(),true);
+ assert.equal(await page.locator('#connectionIndicator').getAttribute('data-state'),'offline');
+ assert.equal(await page.locator('.key-column .properties').count(),1);
+ assert.equal(await page.locator('#read').innerText(),'기기에서 읽기');
+ assert.equal(await page.locator('#write').innerText(),'기기에 쓰기');
  await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
+ assert.equal(await page.locator('#connectionIndicator').getAttribute('data-state'),'online');
  assert.equal(await page.locator('#connect').isDisabled(),true);
  assert.equal(await page.locator('#read').isEnabled(),true);
  assert.equal(await page.locator('#keys .key img').count(),0);
@@ -110,6 +115,7 @@ try{
  await page.locator('#clearAll').click();
  assert.ok((await page.locator('#pendingCount').innerText()).includes('63개'));
  await page.evaluate(()=>window.fakeDisconnect());
+ assert.equal(await page.locator('#connectionIndicator').getAttribute('data-state'),'offline');
  assert.equal(await page.locator('#connect').isEnabled(),true);
  assert.equal(await page.locator('#read').isDisabled(),true);
  assert.equal(await page.locator('#keys .key img, #knobs .knob-action img').count(),0);
