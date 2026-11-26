@@ -144,9 +144,248 @@ const direct={DrawPolyline:'line',SketchMidpointLine:'midpoint',ShapeRectangleTw
 const rules=[
  [/mirror|symmetry/i,'mirror'],[/circular.*pattern|patterncircular/i,'circular'],[/patternonpath/i,'pathpattern'],[/pattern|arrange/i,'pattern'],[/primitivebox/i,'box'],[/primitivecylinder/i,'cylinder'],[/primitivesphere/i,'sphere'],[/primitivetorus/i,'torus'],[/primitivecoil/i,'coil'],[/primitivepipe/i,'pipe'],[/constructionplane/i,'plane'],[/constructionaxis|coordinatesystem/i,'axis'],[/constructionpoint|centerofmass/i,'constructpoint'],[/sheetmetal.*fillet/i,'fillet'],[/sheetmetal.*chamfer/i,'chamfer'],[/flatpattern|unfold/i,'flat'],[/sheetmetal.*rule|plasticrule/i,'gear'],[/sheetmetal|fold|flange|joinbybend/i,'fold'],[/mesh.*cut/i,'cutmesh'],[/mesh.*hollow/i,'shell'],[/mesh.*combine/i,'combine'],[/mesh.*scale/i,'scale'],[/mesh.*align/i,'align'],[/mesh.*normal/i,'normal'],[/mesh.*insert/i,'importmesh'],[/mesh/i,'mesh'],[/project|include3d/i,'project'],[/intersect/i,'intersect'],[/surface.*trim/i,'trim'],[/surface.*offset/i,'offset'],[/surface.*extend|fusionextend/i,'extend'],[/surface|tspline|blendg1|spunprofile/i,'surface'],[/loft/i,'loft'],[/scale/i,'scale'],[/move|drag/i,'move'],[/delete|remove|erase|disable/i,'delete'],[/split/i,'split'],[/joint|mate|constraint/i,'joint'],[/contact|link|connection/i,'link'],[/select.*window|boundary/i,'window'],[/select/i,'select'],[/dimension|tolerance/i,'dimension'],[/hole/i,'hole'],[/thread|fastener/i,'thread'],[/decal|canvas/i,'image'],[/import|insert|derive/i,'insert'],[/curvature|zebra|analysis|interference|validate/i,'analysis'],[/history|timeline|snapshot|positions/i,'history'],[/graph|statistics|dashboard|motion/i,'graph'],[/config.*table|bom|palette/i,'table'],[/rule|parameter|manage|compute|setting|config|script/i,'gear'],[/create.*component|assembly|basefeature|enclosure|modeling/i,'box'],[/note|documentation|task|release|details|order|number/i,'paper'],[/apihelp|advice|help/i,'info'],[/check|finish|confirm/i,'check'],[/text/i,'text'],[/lip|rest/i,'rib']
 ];
-export const styles=Object.freeze(Object.keys(bodies));
-export function iconKind(id,meta={}){if(direct[id]&&Object.hasOwn(direct,id))return direct[id];for(const [pattern,kind] of rules)if(pattern.test(id))return kind;const panel=meta.panel||'';if(panel==='검사')return 'analysis';if(panel==='삽입')return 'insert';if(panel==='선택')return 'select';if(panel==='조립')return 'joint';if(panel==='수정')return 'face';if(panel==='작성')return 'sketch';return 'generic'}
+
+const referenceBodies={
+ circlecenter:()=>circle(16,16,11.5,'none',sketchInk,1.55)+arrow(16,16,24,7,sketchBlue)+arrow(16,16,8,25,sketchBlue)+nodes([16,16]),
+ circle2:()=>circle(16,16,11.5,'none',sketchInk,1.55)+nodes([16,4.5],[16,27.5]),
+ circle3:()=>circle(16,16,11.5,'none',sketchInk,1.55)+nodes([7,8],[27,14],[10,26]),
+ circletan2:()=>sketchLine('M4 3 V28 H29',1.7)+circle(15,17,11,'none',sketchBlue,1.65)+nodes([4,17],[15,28]),
+ circletan3:()=>sketchLine('M3 13 L15 3 L29 24 M3 13 L9 30 L29 24')+circle(15,17,9,'none',sketchInk,1.45)+nodes([8,11],[23,13],[17,26]),
+ arccenter:()=>sketchLine('M4 27 A23 23 0 0 1 28 4')+sketchDash('M28 27 H4 M28 27 V4')+nodes([28,27],[4,27],[28,4]),
+ polygonout:()=>sketchLine('M16 3 L28 9 V23 L16 29 L4 23 V9 Z')+circle(16,16,10,'none',sketchBlue,1.5)+nodes([16,16],[26,16]),
+ polygonin:()=>circle(16,16,13,'none',sketchInk,1.5)+path('M16 3 L28 10 V22 L16 29 L4 22 V10 Z',sketchBlue,1.4)+nodes([16,16],[16,3]),
+ polygon:()=>sketchLine('M16 3 L28 11 L24 26 H8 L4 11 Z')+line(8,26,24,26,sketchBlue,2)+nodes([8,26],[24,26]),
+ ellipse:()=>'<ellipse cx="16" cy="17" rx="12" ry="8.5" fill="none" stroke="'+sketchInk+'" stroke-width="1.55"/>'+path('M16 8 V26 M4 17 H28',sketchBlue,1.3,'none','stroke-dasharray="2 2"')+nodes([16,17],[28,17],[16,8]),
+ slot:()=>rect(3,8,26,16,'none',sketchInk,8)+sketchDash('M11 16 H21')+nodes([11,16],[21,16],[21,8]),
+ slotend:()=>rect(3,8,26,16,'none',sketchInk,8)+nodes([3,16],[29,16],[16,8]),
+ slotcenter:()=>rect(3,8,26,16,'none',sketchInk,8)+sketchDash('M11 16 H21')+nodes([16,16],[21,16],[21,8]),
+ sketchmirror:()=>sketchLine('M3 27 L13 4 V27 Z')+path('M19 4 L29 27 H19 Z',sketchBlue,1.6)+sketchDash('M16 2 V30'),
+ sketchcircular:()=>[0,1,2,3].map(i=>rect(16+10*Math.cos(i*Math.PI/2)-3,16+10*Math.sin(i*Math.PI/2)-3,6,6,sketchBlue,sketchInk,.4)).join(''),
+ sketchpattern:()=>[0,1].flatMap(y=>[0,1].map(x=>rect(5+x*16,5+y*16,6,6,'none',sketchBlue,.3))).join('')+sketchDash('M11 8 H21 M8 11 V21 M24 11 V21 M11 24 H21'),
+ dimension:()=>sketchLine('M4 6 V29 M28 6 V29')+arrow(16,11,4,11,sketchBlue)+arrow(16,11,28,11,sketchBlue),
+ fillet2:()=>sketchLine('M4 29 V16 M16 4 H29')+path('M4 16 Q4 4 16 4',sketchBlue,1.9),
+ trim:()=>sketchLine('M3 8 H29 M15 8 V29',1.5)+path('M15 8 H29',sketchBlue,1.6,'none','stroke-dasharray="2 2"')+circle(17,22,3,'none',sketchInk,1.4)+circle(24,25,3,'none',sketchInk,1.4)+sketchLine('M18 20 L27 11 M23 23 L14 11'),
+ extend:()=>sketchLine('M4 25 H18 M28 7 V29')+path('M18 25 H28',sketchBlue,1.8,'none','stroke-dasharray="2 2"')+arrow(18,25,27,25,sketchBlue),
+ break:()=>sketchLine('M3 16 H29')+line(16,4,16,28,sketchBlue,1.9)+nodes([16,16]),
+ scale2:()=>rect(4,4,24,24,'none',sketchBlue,.4)+rect(4,16,12,12,'none',sketchInk,.2),
+ offset2:()=>sketchLine('M29 8 H13 A8 8 0 0 0 13 24 H29')+path('M29 3 H13 A13 13 0 0 0 13 29 H29',sketchBlue,1.55),
+ move:()=>arrow(16,16,16,3,sketchInk)+arrow(16,16,29,16,sketchInk)+arrow(16,16,16,29,sketchInk)+arrow(16,16,3,16,sketchInk)
+};
+
+Object.assign(referenceBodies,{
+ line:()=>sketchLine("M3 25 H21 C32 25 31 7 21 7 H18",1.65)+nodes([3,25],[21,25],[18,7]),
+ rect2:()=>sketchLine("M4 6 H28 V26 H4 Z",1.65)+nodes([4,6],[28,26]),
+ rect3:()=>sketchLine("M4 15 L17 3 L28 16 L15 29 Z",1.65)+nodes([4,15],[17,3],[28,16]),
+ rectcenter:()=>sketchLine("M4 7 H28 V25 H4 Z",1.65)+nodes([16,16],[28,25]),
+ arc3:()=>sketchLine("M4 27 A23 23 0 0 1 28 5",1.65)+nodes([4,27],[11,13],[28,5]),
+ arctan:()=>sketchLine("M3 11 H13 Q27 11 29 25",1.65)+nodes([3,11],[13,11],[29,25]),
+ spline:()=>sketchLine("M3 27 C6 -2 13 9 18 18 S26 29 29 4",1.65)+nodes([3,27],[9,8],[21,22],[29,4]),
+ conic:()=>sketchLine("M4 27 Q16 -17 28 27",1.65)+nodes([4,27],[16,5],[28,27]),
+ point:()=>sketchLine("M3 16 H29 M16 3 V29",1.65)
+});
+export const referenceIcons=Object.freeze({
+  "DrawPolyline": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/polyline.png",
+    "kind": "line",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapeRectangleTwoPoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/rectangle-2-point.png",
+    "kind": "rect2",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapeRectangleThreePoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/rectangle-3-point.png",
+    "kind": "rect3",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapeRectangleCenter": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/rectangle-center.png",
+    "kind": "rectcenter",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircleCenterRadius": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/circle-center-diameter.png",
+    "kind": "circlecenter",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircleTwoPoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/circle-2-point.png",
+    "kind": "circle2",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircleThreePoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/circle-3-point.png",
+    "kind": "circle3",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircleTanTanRadius": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/circle-2-tangent.png",
+    "kind": "circletan2",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircleThreeTangent": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/circle-3-tangent.png",
+    "kind": "circletan3",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ArcThreePoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/arc-3-point.png",
+    "kind": "arc3",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ArcCenterTwoPoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/arc-center-point.png",
+    "kind": "arccenter",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ArcTangent": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/arc-tangent.png",
+    "kind": "arctan",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapePolygonCircumscribed": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/polygon-circumscribed.png",
+    "kind": "polygonout",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapePolygonInscribed": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/polygon-inscribed.png",
+    "kind": "polygonin",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapePolygonEdge": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/polygon-edge.png",
+    "kind": "polygon",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircleElipse": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/circle-ellipse.png",
+    "kind": "ellipse",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapeSlotCenterToCenter": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/slot-center-center.png",
+    "kind": "slot",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapeSlotOverall": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/slot-overall.png",
+    "kind": "slotend",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ShapeSlotCenterPoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/slot-center-point.png",
+    "kind": "slotcenter",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "DrawSpline": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/spline-fit-point.png",
+    "kind": "spline",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ConicCurveCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/conic-curve.png",
+    "kind": "conic",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "DrawPoint": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/point.png",
+    "kind": "point",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "MirrorSketchCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/mirror.png",
+    "kind": "sketchmirror",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "CircularSketchPatternCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/common/pattern-circular.png",
+    "kind": "sketchcircular",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "RectangularSketchPatternCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/pattern-rectangular.png",
+    "kind": "sketchpattern",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "SketchDimension": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/dimension.png",
+    "kind": "dimension",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FilletSketchCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/fillet.png",
+    "kind": "fillet2",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "TrimSketchCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/trim.png",
+    "kind": "trim",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "ExtendSketchCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/extend.png",
+    "kind": "extend",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "BreakSketchCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/break.png",
+    "kind": "break",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "SketchScaleCmd": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/scale.png",
+    "kind": "scale2",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "Offset": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/skt/offset.png",
+    "kind": "offset2",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  },
+  "FusionMoveCommand": {
+    "source": "https://help.autodesk.com/cloudhelp/ENU/Fusion-GenerativeDesign/images/icon/common/move.png",
+    "kind": "move",
+    "reference": "official-help-image-opened",
+    "review": "redrawn-reference-not-pixel-verified"
+  }
+});
+export const styles=Object.freeze([...new Set([...Object.keys(bodies),...Object.keys(referenceBodies)])]);
+export function iconKind(id,meta={}){if(Object.hasOwn(referenceIcons,id))return referenceIcons[id].kind;if(direct[id]&&Object.hasOwn(direct,id))return direct[id];for(const [pattern,kind] of rules)if(pattern.test(id))return kind;const panel=meta.panel||'';if(panel==='검사')return 'analysis';if(panel==='삽입')return 'insert';if(panel==='선택')return 'select';if(panel==='조립')return 'joint';if(panel==='수정')return 'face';if(panel==='작성')return 'sketch';return 'generic'}
 const defs='<defs><linearGradient id="side" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#b1dce9"/><stop offset="1" stop-color="#5b9cba"/></linearGradient><linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#eef9fb"/><stop offset="1" stop-color="#a9d6e5"/></linearGradient><radialGradient id="ball" cx=".3" cy=".25" r=".8"><stop stop-color="#edf9fc"/><stop offset="1" stop-color="#65a4bf"/></radialGradient></defs>';
-export function iconSvg(id,meta={}){return '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 32 32">'+defs+bodies[iconKind(id,meta)]()+'</svg>'}
+export function iconSvg(id,meta={}){return '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 32 32">'+defs+(Object.hasOwn(referenceIcons,id)?referenceBodies[referenceIcons[id].kind]:bodies[iconKind(id,meta)])()+'</svg>'}
 const cache=new Map();
-export function iconUrl(id,meta={}){const kind=iconKind(id,meta);if(!cache.has(kind))cache.set(kind,'data:image/svg+xml,'+encodeURIComponent(iconSvg(id,meta)));return cache.get(kind)}
+export function iconUrl(id,meta={}){const kind=(Object.hasOwn(referenceIcons,id)?'ref:':'')+iconKind(id,meta);if(!cache.has(kind))cache.set(kind,'data:image/svg+xml,'+encodeURIComponent(iconSvg(id,meta)));return cache.get(kind)}
