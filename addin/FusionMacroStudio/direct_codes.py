@@ -102,6 +102,9 @@ class DirectInput:
             return True
         if vk in self.held:
             return True
+        # A legacy symbol cannot continue a partially received common frame.
+        if self.common_frame is not None:
+            self.cancel()
         pair_prefix=active and mods==2 and 130<=vk<=132
         short_prefix=active and mods==2 and vk==135
         if not active or (not short_prefix and not pair_prefix and mods!=1 and not (self.markers and mods==3)) or not 124<=vk<=135:

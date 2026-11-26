@@ -96,3 +96,39 @@ class DirectTest(unittest.TestCase):
         self.d.down(127,2,9,True);self.d.up(127,9.1,True)
         self.d.tick(9.15,False)
         self.assertEqual(pair(0,9.2),(True,"__fms_orbit_left__"))
+
+    def test_common_pair_physical_and_early_release(self):
+        self.d=m.DirectInput(tuple(m.COMMON_CAMERA))
+        normal=m.COMMON_CAMERA.index("__fms_orbit_left__")
+        held=m.COMMON_CAMERA.index("__fms_zoom_in__")
+        value=normal*(len(m.COMMON_CAMERA)+1)+held
+        def pair(knob,t):
+            self.tap(0x71,t,7)
+            for i,d in enumerate(str(knob)+str(value).zfill(3)):
+                result=self.tap(0x30+int(d),t+.02*(i+1),7)
+            return result
+        self.assertEqual(pair(0,0),(True,"__fms_orbit_left__"))
+        self.assertTrue(self.d.down(0x73,7,.2,True))
+        self.assertEqual(pair(0,.3),(True,"__fms_zoom_in__"))
+        self.assertEqual(pair(1,.5),(True,"__fms_orbit_left__"))
+        self.assertEqual(self.d.up(0x73,.7,True),(True,None))
+        self.assertEqual(pair(0,.8),(True,"__fms_orbit_left__"))
+        self.d.down(0x73,7,1,True)
+        self.d.up(0x73,1.1,True)
+        self.assertEqual(pair(0,1.2),(True,"__fms_zoom_in__"))
+        self.assertEqual(pair(0,1.9),(True,"__fms_orbit_left__"))
+
+    def test_common_prefix_required_and_mixed_frames_rejected(self):
+        self.assertFalse(self.d.down(0x31,7,0,True))
+        self.assertEqual(self.d.up(0x31,.01,True),(False,None))
+        self.tap(0x70,.1,7)
+        self.tap(0x30,.2,7)
+        self.tap(135,.3,1)
+        self.assertFalse(self.d.down(0x30,7,.4,True))
+        self.tap(0x70,.6,7)
+        for i,d in enumerate("00001"):
+            result=self.tap(0x30+int(d),.7+.03*i,7)
+        self.assertEqual(result,(True,"circle"))
+        self.tap(0x70,1,7)
+        self.d.tick(1.1,False)
+        self.assertFalse(self.d.down(0x30,7,1.2,True))
