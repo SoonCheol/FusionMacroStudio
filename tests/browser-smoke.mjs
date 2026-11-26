@@ -7,17 +7,19 @@ const page=await browser.newPage({viewport:{width:1920,height:1080},locale:'ko-K
 await page.addInitScript(()=>{
  const slots=[...Array.from({length:12},(_,i)=>i+1),...Array.from({length:9},(_,i)=>i+16)];
  const r={reportId:3,items:[{reportSize:8,reportCount:64}]};
- const listeners=new Set(),disconnect=new Set();
+ const listeners=new Set(),disconnect=new Set(),stored=new Map();
  const device={vendorId:0x514c,productId:0x8842,opened:false,collections:[{usagePage:0xff00,usage:1,inputReports:[r],outputReports:[r]}],
   async open(){this.opened=true},async close(){this.opened=false},
   addEventListener(t,fn){listeners.add(fn)},removeEventListener(t,fn){listeners.delete(fn)},
   async sendReport(id,bytes){
    const emit=values=>{const a=new Uint8Array(64);a.set(values);for(const fn of listeners)fn({reportId:3,data:new DataView(a.buffer)})};
    if(bytes[0]===251)emit([251,12,3]);
-   if(bytes[0]===250)for(const slot of slots)emit([250,slot,bytes[3],1,0,0,0,0,0,1,0,bytes[3]===1&&slot===19?104:0]);
+   if(bytes[0]===254){const row=Array.from(bytes);row[0]=250;stored.set(bytes[2]+':'+bytes[1],row)}
+   if(bytes[0]===250)for(const slot of slots)emit(stored.get(bytes[3]+':'+slot)||[250,slot,bytes[3],1,0,0,0,0,0,1,0,bytes[3]===1&&slot===19?104:0]);
   }};
  Object.defineProperty(navigator,'hid',{configurable:true,value:{requestDevice:async()=>[device],addEventListener(t,fn){disconnect.add(fn)}}});
  window.fakeDisconnect=()=>{for(const fn of disconnect)fn({device})};
+ window.fakeRecord=(layer,slot)=>stored.get(layer+':'+slot);
  const profile={format:'fusion-macro-studio-v1',knobBase:16,layers:Array.from({length:3},()=>({fusion:{},bindings:{}}))};
  profile.layers[0].fusion[1]={id:'DrawPolyline',name:'선'};
  profile.layers[0].bindings[1]={type:'key',steps:[{mods:0,code:104}],delay:0};
@@ -225,6 +227,28 @@ try{
  await page.locator('#bluetoothWizardOpen').click();
  assert.ok((await page.locator('#wizardMessage').innerText()).includes('빈 키 하나'));
  await page.locator('#wizardClose').click();
+ await page.goto(url+'bluetooth-test.html');
+ await page.locator('#wizardNext').click();
+ await page.locator('#wizardCapture').waitFor();
+ assert.equal(await page.evaluate(()=>window.fakeRecord(1,1)[9]),18);
+ const emitProbe=async(includeExtended)=>page.evaluate(include=>{
+  const area=document.getElementById('wizardCapture');
+  const keys=[...(include?Array.from({length:12},(_,i)=>['F'+(13+i),false]):[]),...['F1','F2','F3','Digit1','Digit2','Digit3'].map(x=>[x,true])];
+  for(const [code,mods] of keys)for(const type of ['keydown','keyup'])area.dispatchEvent(new KeyboardEvent(type,{code,key:code,ctrlKey:mods,shiftKey:mods,altKey:mods,bubbles:true,cancelable:true}));
+ },includeExtended);
+ await emitProbe(true);
+ await page.locator('#wizardNext').filter({hasText:'블루투스 연결 완료'}).waitFor();
+ await page.evaluate(()=>window.fakeDisconnect());
+ await page.locator('#wizardNext').click();
+ await page.locator('#wizardCapture').waitFor();
+ await emitProbe(false);
+ await page.locator('#wizardNext').filter({hasText:'USB 연결 및 복원'}).waitFor();
+ assert.match(await page.locator('#wizardResult').innerText(),/블루투스에서 대체 코드 수신 확인/);
+ await page.locator('#wizardNext').click();
+ await page.locator('#wizardMessage').filter({hasText:'원래 빈 상태로 복원'}).waitFor();
+ assert.equal(await page.evaluate(()=>window.fakeRecord(1,1)[9]),1);
+ assert.deepEqual(await page.evaluate(()=>window.fakeRecord(1,1).slice(10,12)),[0,0]);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('fusion-macro-studio.bt-wizard-recovery-v1')),null);
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
  await verifyLabels('Icon gallery');
  await page.screenshot({path:'browser-preview/gallery.png'});

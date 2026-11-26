@@ -64,7 +64,7 @@ export function setupBluetoothWizard({device,ready,layer,profile,onChange,log}){
  }
  function captureDone(){
   if(!reading)return;stopCapture();const prior=stage;
-  if(prior==='usb'){usb=events.slice();ui('switch','블루투스 연결 완료','USB 케이블을 분리하고 블루투스로 연결하세요.\n연결 후 아래 버튼을 누르세요.')}
+  if(prior==='usb'){usb=events.slice();const baseline=summarizeCapture(usb);if(!baseline.extended.matched&&!baseline.alternate.matched){ui('retry-usb','다시 기록',target()+'\n시험 키의 입력을 받지 못했습니다. 실제 레이어를 맞추고 다시 눌러 주세요.');return}ui('switch','블루투스 연결 완료','USB 케이블을 분리하고 블루투스로 연결하세요.\n연결 후 아래 버튼을 누르세요.')}
   else{bt=events.slice();showResults();ui('restore','USB 연결 및 복원','시험 완료. USB 케이블을 다시 연결한 후 아래 버튼을 누르면 시험 키를 복원합니다.')}
  }
  function capture(s){
@@ -113,6 +113,7 @@ export function setupBluetoothWizard({device,ready,layer,profile,onChange,log}){
  next.onclick=action;cancel.onclick=()=>{stopCapture();ui('restore','USB 연결 및 복원','시험 중단 · USB 연결 후 시험 키를 복원하세요.')};
  close.onclick=()=>{if(!journal&&!working)dialog.close()};
  dialog.addEventListener('cancel',e=>{if(journal||working)e.preventDefault()});
+ window.addEventListener('beforeunload',e=>{if(journal){e.preventDefault();e.returnValue=''}});
  // Recovery remains available after restart; do not silently write a reconnected device.
  try{journal=load();if(journal){dialog.showModal();ui('restore','USB 연결 및 복원','이전 시험이 끝나지 않았습니다. 먼저 '+target()+' 키를 복원하세요.')}}catch(e){log(e.message)}
 }
