@@ -16,12 +16,10 @@ export function fitLabels(){
   frame=requestAnimationFrame(()=>{
     frame=0;
     const labels=[...document.querySelectorAll('.word-label')];
-    const canvas=document.createElement('canvas').getContext('2d');if(!canvas)return;
     for(const el of labels)el.style.removeProperty('font-size');
     const plans=labels.map(el=>{
       const s=getComputedStyle(el),base=parseFloat(s.fontSize),width=el.clientWidth-parseFloat(s.paddingLeft||0)-parseFloat(s.paddingRight||0);
-      canvas.font=s.fontStyle+' '+s.fontWeight+' '+s.fontSize+' '+s.fontFamily;
-      const longest=Math.max(0,...[...el.children].map(w=>canvas.measureText(w.textContent).width));
+      const longest=Math.max(0,...[...el.children].map(w=>w.getBoundingClientRect().width));
       return [el,fittedSize(base,Math.max(0,width-1),longest),base];
     });
     for(const [el,size,base] of plans)if(size<base)el.style.fontSize=size+'px';
