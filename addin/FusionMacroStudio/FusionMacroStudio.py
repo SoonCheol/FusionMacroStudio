@@ -11,15 +11,17 @@ import time
 import traceback
 from .mapping import load_mapping, zoom_extents, execute_definition
 from .keyboard_hook import Hook, foreground
+from .local_editor import start_editor, stop_editor, revision
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.13"
+VERSION = "0.3.14"
 app = None
 handler = None
 event = None
 hook = None
 worker = None
+editor_server = editor_thread = None
 stop_event = threading.Event()
 actions = queue.Queue(maxsize=128)
 def log(message):
@@ -170,6 +172,7 @@ def poll():
     stamp = 0
     profile_state = "missing"
     profile_error = ""
+    profile_revision = ""
     while not stop_event.is_set():
         try:
             path = HOME/"profile.json"
@@ -179,17 +182,20 @@ def poll():
                 try:
                     if st and st.st_size > 8*1024*1024:
                         raise ValueError("Profile too large")
-                    hook.set_mapping(load_mapping(json.loads(path.read_text(encoding="utf-8-sig"))) if st else {})
+                    raw = path.read_bytes() if st else None
+                    hook.set_mapping(load_mapping(json.loads(raw.decode("utf-8-sig"))) if raw is not None else {})
+                    profile_revision = revision(raw)
                     profile_state = "loaded" if st else "missing"
                     profile_error = ""
                 except Exception as exc:
                     hook.set_mapping({})
+                    profile_revision = ""
                     profile_state = "invalid"
                     profile_error = str(exc)
                     log("Invalid profile; mapping disabled: " + profile_error)
                 last = current
                 log("Loaded %s command mappings" % len(hook.mapping))
-                status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error)
+                status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error,profile_revision=profile_revision,editor=bool(editor_server))
             request = HOME/"export.request"
             if request.exists() and enqueue("__fms_export__"):
                 request.unlink(missing_ok=True)
@@ -199,7 +205,7 @@ def poll():
                 status("error", message=hook.error or "Keyboard hook stopped",mapped=0)
                 return
             if time.monotonic()-stamp > 3:
-                status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error)
+                status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error,profile_revision=profile_revision,editor=bool(editor_server))
                 stamp=time.monotonic()
             hook.tick()
             try:
@@ -216,7 +222,7 @@ def poll():
             log(traceback.format_exc())
             stop_event.wait(1)
 def run(context):
-    global app, handler, event, hook, worker
+    global app, handler, event, hook, worker, editor_server, editor_thread
     try:
         HOME.mkdir(parents=True,exist_ok=True)
         app=adsk.core.Application.get()
@@ -226,6 +232,11 @@ def run(context):
         event.add(handler)
         hook=Hook(enqueue)
         hook.start()
+        try:
+            editor_server, editor_thread = start_editor(HOME, Path(__file__).parent / 'web')
+            log('Local editor: http://127.0.0.1:18472/')
+        except Exception:
+            log('Local editor unavailable: ' + traceback.format_exc())
         worker=threading.Thread(target=poll,daemon=True)
         worker.start()
         log("Add-in started "+VERSION)
@@ -234,8 +245,11 @@ def run(context):
         stop(context)
         status("error")
 def stop(context):
-    global hook, worker, event, handler
+    global hook, worker, event, handler, editor_server, editor_thread
     stop_event.set()
+    if editor_server:
+        stop_editor(editor_server, editor_thread)
+        editor_server = editor_thread = None
     if hook:
         hook.stop()
     if worker:

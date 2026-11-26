@@ -5,8 +5,8 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $homeDir = Join-Path $env:LOCALAPPDATA 'FusionMacroStudio'
 $source = Join-Path $PSScriptRoot 'FusionMacroStudio'
-$packageVersion = '0.3.13'
-$required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py')
+$packageVersion = '0.3.14'
+$required = @('FusionMacroStudio.py','FusionMacroStudio.manifest','mapping.py','keyboard_hook.py','local_editor.py')
 $roots = @('Autodesk\Autodesk Fusion\API\AddIns','Autodesk\Autodesk Fusion 360\API\AddIns') | ForEach-Object { Join-Path $env:APPDATA $_ }
 function Read-Manifest([string]$path) {
     # Fusion uses an empty string for the default localized description.
@@ -44,10 +44,24 @@ function Assert-Profile($p) {
         }
     }
 }
+function Save-ProfileFile([string]$file,[string]$folder) {
+    $target = Join-Path $folder 'profile.json'
+    $temp = Join-Path $folder ('profile.' + [Guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        Copy-Item -LiteralPath $file -Destination $temp -Force
+        if (Test-Path -LiteralPath $target) {
+            $backup = Join-Path $folder 'profile.previous.json'
+            [IO.File]::Replace($temp,$target,$backup)
+        } else { Move-Item -LiteralPath $temp -Destination $target }
+    } finally {
+        if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force }
+    }
+}
 function Install-Package {
     Assert-Closed
     $target = Get-Target
     foreach ($name in $required) { if (!(Test-Path -LiteralPath (Join-Path $source $name) -PathType Leaf)) { throw "Missing package: $name" } }
+    if (!(Test-Path -LiteralPath (Join-Path $source 'web/index.html') -PathType Leaf)) { throw 'Missing local editor assets.' }
     $m = Read-Manifest (Join-Path $source 'FusionMacroStudio.manifest')
     if ($m.version -ne $packageVersion -or $m.type -ne 'addin' -or !$m.runOnStartup) { throw 'Package manifest mismatch.' }
     # Stage outside AddIns to prevent discovery of an incomplete package.
@@ -63,6 +77,9 @@ function Install-Package {
             Copy-Item -LiteralPath $target -Destination $stage -Recurse -Force
         } else { New-Item -ItemType Directory -Path $stage | Out-Null }
         foreach ($name in $required) { Copy-Item -LiteralPath (Join-Path $source $name) -Destination (Join-Path $stage $name) -Force }
+        $stageWeb = Join-Path $stage 'web'
+        if (Test-Path -LiteralPath $stageWeb) { Remove-Item -LiteralPath $stageWeb -Recurse -Force }
+        Copy-Item -LiteralPath (Join-Path $source 'web') -Destination $stageWeb -Recurse -Force
         Assert-Closed
         if (Test-Path -LiteralPath $target) { Move-Item -LiteralPath $target -Destination $old; $moved=$true }
         Move-Item -LiteralPath $stage -Destination $target
@@ -93,6 +110,15 @@ if ($SelfTest) {
         if (!(Test-Path -LiteralPath $neighbor) -or !(Test-Path -LiteralPath $target)) { throw 'Update self-test failed.' }
         $previous = @(Get-ChildItem -LiteralPath (Split-Path $roots[0] -Parent) -Directory -Filter 'FusionMacroStudio.previous.*')
         if ($previous.Count -ne 1) { throw 'Update backup self-test failed.' }
+        if (!(Test-Path -LiteralPath (Join-Path $target 'web/index.html'))) { throw 'Local editor install test failed.' }
+        $sample = Join-Path $testRoot 'sample.json'
+        Set-Content -LiteralPath $sample -Value '{"test":1}'
+        Save-ProfileFile $sample $testRoot
+        Set-Content -LiteralPath $sample -Value '{"test":2}'
+        Save-ProfileFile $sample $testRoot
+        Set-Content -LiteralPath $sample -Value '{"test":3}'
+        Save-ProfileFile $sample $testRoot
+        if ((Get-Content -LiteralPath (Join-Path $testRoot 'profile.json') -Raw | ConvertFrom-Json).test -ne 3 -or (Get-Content -LiteralPath (Join-Path $testRoot 'profile.previous.json') -Raw | ConvertFrom-Json).test -ne 2) { throw 'Profile replacement test failed.' }
         Write-Host 'Windows installer self-test passed: manifest, install, update, backup, neighbor preservation.'
     } finally {
         if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
@@ -102,16 +128,16 @@ if ($SelfTest) {
 New-Item -ItemType Directory -Path $homeDir -Force | Out-Null
 $form = New-Object Windows.Forms.Form
 $form.Text = 'Fusion Macro Studio Add-in Setup ' + $packageVersion
-$form.Width = 520; $form.Height = 495; $form.StartPosition='CenterScreen'
+$form.Width = 520; $form.Height = 539; $form.StartPosition='CenterScreen'
 $form.FormBorderStyle='FixedDialog'; $form.MaximizeBox=$false
 $form.Font = New-Object Drawing.Font('Segoe UI',10)
 $dark = $false
 try { $dark = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize').AppsUseLightTheme -eq 0 } catch {}
 $label = New-Object Windows.Forms.Label
-$label.SetBounds(20,18,470,58); $label.Text='FusionMacroStudio independent add-in. Install, import your web profile, then start Fusion.'
+$label.SetBounds(20,18,470,58); $label.Text='FusionMacroStudio independent add-in. Install, start Fusion, then open the local editor. Write to sync automatically.'
 $form.Controls.Add($label)
 $status = New-Object Windows.Forms.Label
-$status.SetBounds(20,338,470,105); $form.Controls.Add($status)
+$status.SetBounds(20,382,470,105); $form.Controls.Add($status)
 function Refresh-Status {
     try {
         $path = Get-Target
@@ -144,10 +170,7 @@ Add-Action 'Import Fusion Macro Studio profile JSON' 124 {
     $p = Get-Content -LiteralPath $d.FileName -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-Profile $p
     $target = Join-Path $homeDir 'profile.json'
-    if (Test-Path $target) { Copy-Item $target (Join-Path $homeDir 'profile.previous.json') -Force }
-    $temp = Join-Path $homeDir 'profile.tmp'
-    Copy-Item -LiteralPath $d.FileName -Destination $temp -Force
-    if (Test-Path $target) { [IO.File]::Replace($temp,$target,$null) } else { Move-Item $temp $target }
+    Save-ProfileFile $d.FileName $homeDir
 }
 Add-Action 'Export Fusion command list / local icons' 168 {
     $s = if (Test-Path (Join-Path $homeDir 'status.json')) { Get-Content (Join-Path $homeDir 'status.json') -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
@@ -156,7 +179,8 @@ Add-Action 'Export Fusion command list / local icons' 168 {
     [Windows.Forms.MessageBox]::Show('Export requested. Fusion and the add-in must be running. Open the local data folder when complete.') | Out-Null
 }
 Add-Action 'Open local data folder' 212 { Start-Process explorer.exe $homeDir }
-Add-Action 'Uninstall add-in (keep profile)' 256 {
+Add-Action 'Open local editor (automatic sync)' 256 { Start-Process 'http://127.0.0.1:18472/' }
+Add-Action 'Uninstall add-in (keep profile)' 300 {
     Assert-Closed
     $target = Get-Target
     if (Test-Path $target) {
@@ -170,7 +194,7 @@ function Set-Theme {
     foreach ($c in $form.Controls) { $c.ForeColor=$form.ForeColor; if ($c -is [Windows.Forms.Button]) { $c.FlatStyle='Flat';$c.BackColor=$bg } }
 }
 $toggle=New-Object Windows.Forms.Button
-$toggle.SetBounds(20,300,460,30);$toggle.Text='Light / dark'
+$toggle.SetBounds(20,344,460,30);$toggle.Text='Light / dark'
 $toggle.Add_Click({ $script:dark = -not $script:dark; Set-Theme })
 $form.Controls.Add($toggle)
 Set-Theme
