@@ -44,3 +44,47 @@ def load_mapping(profile):
 def resolve(action, elapsed, threshold=0.5):
     command, is_key = action
     return "__fms_escape__" if is_key and elapsed >= threshold else command
+
+class PressState:
+    """Pure state machine. Consume one physical down/up pair, never two actions."""
+    def __init__(self, threshold=0.5):
+        self.threshold = threshold
+        self.held = {}
+    def down(self, vk, action, now):
+        if vk in self.held:
+            return True
+        if not action:
+            return False
+        self.held[vk] = [now, action, False]
+        return True
+    def cancel(self):
+        # Keep consuming matching releases; do not run commands from a prior focus/profile.
+        for state in self.held.values():
+            state[2] = True
+    def tick(self, now, active):
+        if not active:
+            self.cancel()
+            return []
+        result = []
+        for state in self.held.values():
+            start, action, consumed = state
+            if not consumed and action[1] and now-start >= self.threshold:
+                state[2] = True
+                result.append("__fms_escape__")
+        return result
+    def up(self, vk, now, active):
+        state = self.held.pop(vk, None)
+        if state is None:
+            return False, None
+        start, action, consumed = state
+        return True, resolve(action, now-start, self.threshold) if active and not consumed else None
+
+def zoom_extents(width, height, factor):
+    if not all(isinstance(v, (float,int)) and v > 0 for v in (width,height,factor)):
+        raise ValueError("Invalid camera extents")
+    # Clamp one common factor so aspect ratio never changes.
+    from math import isfinite
+    if not all(isfinite(v) for v in (width,height,factor)):
+        raise ValueError("Invalid camera extents")
+    factor = min(max(factor, 1e-6/min(width,height)), 1e9/max(width,height))
+    return width*factor,height*factor

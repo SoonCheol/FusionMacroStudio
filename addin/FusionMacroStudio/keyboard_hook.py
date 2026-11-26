@@ -4,7 +4,7 @@ from ctypes import wintypes as w
 import os
 import threading
 import time
-from .mapping import resolve
+from .mapping import PressState
 
 U = c.WinDLL("user32", use_last_error=True)
 K = c.WinDLL("kernel32", use_last_error=True)
@@ -40,31 +40,45 @@ def modifiers():
 class Hook:
     def __init__(self, dispatch):
         self.mapping = {}
+        self.generation = 0
         self.dispatch = dispatch
-        self.down = {}
+        self.press = PressState()
+        self.lock = threading.RLock()
         self.thread = None
         self.tid = 0
         self.ready = threading.Event()
         self.error = None
         self.callback = HOOKPROC(self._callback)
+    def set_mapping(self, mapping):
+        with self.lock:
+            self.press.cancel()
+            self.mapping = mapping
+            self.generation += 1
+    def tick(self):
+        with self.lock:
+            for cmd in self.press.tick(time.monotonic(), foreground()):
+                self.dispatch(cmd, self.generation)
     def _callback(self, code, msg, data):
         try:
             if code >= 0:
                 k = c.cast(data,c.POINTER(KBD)).contents
                 vk = k.vkCode
                 if 0x7c <= vk <= 0x87 and not k.flags & 0x10:
-                    if msg in (0x100,0x104):
-                        if vk in self.down:
-                            return 1
-                        action = self.mapping.get((modifiers(),vk)) if foreground() else None
-                        if action:
-                            self.down[vk] = (time.monotonic(),action)
-                            return 1
-                    elif msg in (0x101,0x105) and vk in self.down:
-                        start, action = self.down.pop(vk)
-                        if foreground():
-                            self.dispatch(resolve(action,time.monotonic()-start))
-                        return 1
+                    with self.lock:
+                        active = foreground()
+                        if not active:
+                            self.press.cancel()
+                        now = time.monotonic()
+                        if msg in (0x100,0x104):
+                            action = self.mapping.get((modifiers(),vk)) if active else None
+                            if self.press.down(vk,action,now):
+                                return 1
+                        elif msg in (0x101,0x105):
+                            consume, cmd = self.press.up(vk,now,active)
+                            if cmd:
+                                self.dispatch(cmd,self.generation)
+                            if consume:
+                                return 1
         except Exception:
             pass
         return U.CallNextHookEx(None,code,msg,data)
@@ -87,7 +101,8 @@ class Hook:
             self.ready.set()
             if handle:
                 U.UnhookWindowsHookEx(handle)
-            self.down.clear()
+            with self.lock:
+                self.press.held.clear()
     def start(self):
         self.thread = threading.Thread(target=self._run,daemon=True)
         self.thread.start()

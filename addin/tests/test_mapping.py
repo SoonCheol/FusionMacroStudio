@@ -31,4 +31,32 @@ class Test(unittest.TestCase):
             elif change=="reserved":p["layers"][0]["fusion"]["1"]["id"]="__fms_export__"
             else:p["layers"][0]["fusion"]["13"]={"id":"wrong"}
             with self.assertRaises(ValueError):m.load_mapping(p)
+    def test_press_state_once_and_repeat(self):
+        p=m.PressState()
+        self.assertTrue(p.down(124,("DrawPolyline",True),10))
+        self.assertTrue(p.down(124,("Other",True),10.1))
+        self.assertEqual(p.tick(10.49,True),[])
+        self.assertEqual(p.tick(10.5,True),["__fms_escape__"])
+        self.assertEqual(p.tick(11,True),[])
+        self.assertEqual(p.up(124,12,True),(True,None))
+        self.assertTrue(p.down(124,("DrawPolyline",True),13))
+        self.assertEqual(p.up(124,13.1,True),(True,"DrawPolyline"))
+    def test_knob_and_focus_loss(self):
+        p=m.PressState()
+        p.down(125,("__fms_zoom_in__",False),1)
+        self.assertEqual(p.tick(2,True),[])
+        self.assertEqual(p.up(125,2,True),(True,"__fms_zoom_in__"))
+        p.down(124,("Line",True),3)
+        self.assertEqual(p.tick(3.2,False),[])
+        self.assertEqual(p.up(124,4,True),(True,None))
+        p.down(124,("Line",True),5)
+        p.cancel()
+        self.assertEqual(p.up(124,5.1,True),(True,None))
+        self.assertEqual(p.up(125,6,True),(False,None))
+    def test_zoom_extents(self):
+        self.assertEqual(m.zoom_extents(20,10,.85),(17,8.5))
+        w,h=m.zoom_extents(2e-6,1e-6,.85)
+        self.assertEqual(w/h,2)
+        self.assertGreaterEqual(h,1e-6)
+        with self.assertRaises(ValueError):m.zoom_extents(0,1,.85)
 if __name__=="__main__":unittest.main()

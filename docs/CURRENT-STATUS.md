@@ -1,4 +1,4 @@
-# 현재 상태 v0.3.9
+# 현재 상태 v0.3.10
 - 공개 저장소 main, 정적 웹앱으로 변경. 기존 DeckForge 변경 없음.
 - 실물 4열×3행 키, 오른쪽 세로 3노브, 오른쪽 명령 패널, 테마, 패널 너비 조절, 검색/한영, 드래그, 프로필 파일 저장/불러오기, 로컬 원본 PNG 가져오기 구현.
 - 실제 메뉴 자료 959개 배치 / 326 고유 명령 및 영문 1209개 자료 사용. 전체 6MB 카탈로그는 커넥터 미반환으로 로컬 JSON 추가 가져오기만 구현.
@@ -32,3 +32,5 @@
 - v0.3.8: v0.3.7 브라우저 실행은 성공했으나 아이소파라메트릭 단어 폭 초과로 검사 실패. 실제 글꼴 적용 후 재측정/축소 추가. 기존 불러오기 버튼으로 장치 백업 63개 주소·길이·바이트 검증 및 지원되는 키 시퀀스(최대18), 빈 키(문서의 1/1/0/0), 단독 modifier, 미디어 및 마우스 레코드 복원 대기 기능 구현. 임의 원본 패킷 전송 금지, 미지원 타입 제외, 휠 읽기 4/쓰기 3 정규화. 일반 프로필의 읽은 키 설정도 복원 대상. 복원 전 읽기/명시 쓰기/원본 백업/전체 재읽기 필요. LED·지연 및 미확인 타입 미지원, 백업은 Fusion 명령 ID를 포함하지 않음. 실제 하드웨어 테스트 전. 아이콘 변경 없음.
 
 - v0.3.9: 독립 애드인/설치 패키지 버전 동기화. Fusion 매핑의 실제 HID 트리거 일치 검사(잘못된 프로필이면 비활성화), 설치 전 구조 검사, 이전 프로필 보존, 설치 패키지 매니페스트 검증 및 AddIns 외부 스테이징/이전 버전 보존/실패 복원, 실행 중 매핑 수·프로필 오류·내보내기 상태 확인. 로컬 파일만 사용. 기존 UI/아이콘/HID 변경 없음. Windows/Fusion 실제 설치 및 동작 미검증.
+
+- v0.3.10: 일반 키 500ms 길게 ESC 1회 실행/떼기 중복 방지, 반복 입력·노브 구분, 포커스/프로필 변경 취소 및 1.5초 지난 입력 폐기. Fusion 이벤트 큐 반환 및 명령 실행 반환 검사. 공식 API getExtents/setExtents(2023.10), 원근 카메라 eye 거리 제어, 구 API fallback, 7도 오비트/0.85 줌은 실기 검증 전 임시값. 순수 상태기계/줌 계산 테스트 추가. 노브 누른 채 회전은 장치 이벤트 미확인으로 구현하지 않음. UI/아이콘/HID 변경 없음. API 출처: https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_Camera_getExtents.htm , https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_Camera_setExtents.htm , https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_Application_fireCustomEvent.htm , https://help.autodesk.com/cloudhelp/ENU/Fusion-360-API/files/core_CommandDefinition_execute.htm .

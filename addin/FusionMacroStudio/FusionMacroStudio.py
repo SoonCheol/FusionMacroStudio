@@ -9,12 +9,12 @@ import shutil
 import threading
 import time
 import traceback
-from .mapping import load_mapping
+from .mapping import load_mapping, zoom_extents
 from .keyboard_hook import Hook, foreground
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.9"
+VERSION = "0.3.10"
 app = None
 handler = None
 event = None
@@ -37,9 +37,9 @@ def status(state, **extra):
 
 def export_status(state, **extra):
     write_json(HOME/"export-status.json", {"state":state,"time":time.time(),**extra})
-def enqueue(value):
+def enqueue(value, generation=None):
     try:
-        actions.put_nowait(value)
+        actions.put_nowait((value, generation, time.monotonic()))
         return True
     except queue.Full:
         return False
@@ -82,15 +82,33 @@ def export_catalog():
 def camera_action(command):
     viewport = app.activeViewport
     if not viewport:
-        return
+        raise RuntimeError("No active viewport")
     cam = viewport.camera
     cam.isSmoothTransition = False
     if command == "__fms_fit__":
         cam.isFitView = True
     elif command in ("__fms_zoom_in__","__fms_zoom_out__"):
-        # Legacy property is supported on older Fusion versions; newer API
-        # can be adopted after verifying the installed Fusion version.
-        cam.viewExtents = max(0.000001,cam.viewExtents*(0.85 if command.endswith("in__") else 1/0.85))
+        factor = 0.85 if command.endswith("in__") else 1/0.85
+        if hasattr(cam, "getExtents") and hasattr(cam, "setExtents"):
+            ok, width, height = cam.getExtents()
+            if ok:
+                if not cam.setExtents(*zoom_extents(width,height,factor)):
+                    raise RuntimeError("Camera setExtents failed")
+            else:
+                # Perspective: change eye distance while preserving target and orientation.
+                eye, target = cam.eye, cam.target
+                delta = target.vectorTo(eye)
+                distance = delta.length
+                if not math.isfinite(distance) or distance <= 0:
+                    raise RuntimeError("Invalid camera eye distance")
+                scale = min(max(factor,1e-6/distance),1e9/distance)
+                delta.scaleBy(scale)
+                point = target.copy()
+                point.translateBy(delta)
+                cam.eye = point
+        else:
+            # Compatibility fallback for pre-October 2023 Fusion versions.
+            cam.viewExtents = max(0.000001,cam.viewExtents*factor)
     else:
         up = cam.upVector
         if command in ("__fms_orbit_up__","__fms_orbit_down__"):
@@ -99,11 +117,11 @@ def camera_action(command):
         else:
             axis = up.copy()
         if not axis.normalize():
-            return
+            raise RuntimeError('Invalid orbit axis')
         angle = math.radians(7 if command in ("__fms_orbit_left__","__fms_orbit_up__") else -7)
         matrix = adsk.core.Matrix3D.create()
         if not matrix.setToRotation(angle,axis,cam.target):
-            return
+            raise RuntimeError('Orbit rotation failed')
         eye = cam.eye
         eye.transformBy(matrix)
         cam.eye = eye
@@ -118,7 +136,10 @@ class Dispatch(adsk.core.CustomEventHandler):
         super().__init__()
     def notify(self,args):
         try:
-            cmd = args.additionalInfo
+            payload = json.loads(args.additionalInfo)
+            cmd = payload['command']
+            if stop_event.is_set():
+                return
             if cmd == "__fms_export__":
                 export_status("running")
                 try:
@@ -127,17 +148,22 @@ class Dispatch(adsk.core.CustomEventHandler):
                     export_status("error", message=str(exc))
                     log(traceback.format_exc())
                 return
-            if not foreground():
+            if not hook or payload["generation"] != hook.generation or not foreground() or time.monotonic()-payload["created"] > 1.5:
                 return
             ui = app.userInterface
+            if not ui.isUIEnabled:
+                log("Fusion UI disabled: "+cmd)
+                return
             if cmd == "__fms_escape__":
-                ui.terminateActiveCommand()
+                if not ui.terminateActiveCommand():
+                    log("No active command terminated")
             elif cmd in CAMERA:
                 camera_action(cmd)
             else:
                 definition = ui.commandDefinitions.itemById(cmd)
-                if definition and definition.isEnabled:
-                    definition.execute()
+                if definition and definition.isValid and definition.isEnabled:
+                    if not definition.execute():
+                        log("Command execution rejected: "+cmd)
                 else:
                     log("Unavailable command: "+cmd)
         except Exception:
@@ -157,11 +183,11 @@ def poll():
                 try:
                     if st and st.st_size > 8*1024*1024:
                         raise ValueError("Profile too large")
-                    hook.mapping = load_mapping(json.loads(path.read_text(encoding="utf-8-sig"))) if st else {}
+                    hook.set_mapping(load_mapping(json.loads(path.read_text(encoding="utf-8-sig"))) if st else {})
                     profile_state = "loaded" if st else "missing"
                     profile_error = ""
                 except Exception as exc:
-                    hook.mapping = {}
+                    hook.set_mapping({})
                     profile_state = "invalid"
                     profile_error = str(exc)
                     log("Invalid profile; mapping disabled: " + profile_error)
@@ -173,17 +199,23 @@ def poll():
                 request.unlink(missing_ok=True)
                 export_status("queued")
             if not hook.thread or not hook.thread.is_alive():
-                hook.mapping = {}
+                hook.set_mapping({})
                 status("error", message=hook.error or "Keyboard hook stopped",mapped=0)
                 return
             if time.monotonic()-stamp > 3:
                 status("running",mapped=len(hook.mapping),profile=profile_state,profile_error=profile_error)
                 stamp=time.monotonic()
+            hook.tick()
             try:
-                action = actions.get(timeout=.2)
+                action, generation, created = actions.get(timeout=.025)
             except queue.Empty:
                 continue
-            app.fireCustomEvent(EVENT,action)
+            if action != "__fms_export__" and (generation != hook.generation or time.monotonic()-created > 1.5 or not foreground()):
+                continue
+            if not app.fireCustomEvent(EVENT,json.dumps({"command":action,"generation":generation,"created":created})):
+                log("Could not queue Fusion event: "+action)
+                if action == "__fms_export__":
+                    export_status("error",message="Fusion event rejected")
         except Exception:
             log(traceback.format_exc())
             stop_event.wait(1)
