@@ -221,6 +221,10 @@ try{
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1.pending'))[0].binding.steps),Array.from({length:12},(_,i)=>({mods:1,code:104+i})));
  assert.ok((await page.locator('#pendingCount').innerText()).includes('1개'));
  assert.equal(await page.locator('#stageBtTest').isDisabled(),true);
+ await page.goto(url);
+ await page.locator('#bluetoothWizardOpen').click();
+ assert.ok((await page.locator('#wizardMessage').innerText()).includes('빈 키 하나'));
+ await page.locator('#wizardClose').click();
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
  await verifyLabels('Icon gallery');
  await page.screenshot({path:'browser-preview/gallery.png'});
