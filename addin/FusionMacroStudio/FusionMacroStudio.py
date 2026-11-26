@@ -9,12 +9,12 @@ import shutil
 import threading
 import time
 import traceback
-from .mapping import load_mapping, zoom_extents
+from .mapping import load_mapping, zoom_extents, execute_definition
 from .keyboard_hook import Hook, foreground
 
 HOME = Path(os.environ["LOCALAPPDATA"]) / "FusionMacroStudio"
 EVENT = "FusionMacroStudio.Command.v1"
-VERSION = "0.3.11"
+VERSION = "0.3.12"
 app = None
 handler = None
 event = None
@@ -160,12 +160,8 @@ class Dispatch(adsk.core.CustomEventHandler):
             elif cmd in CAMERA:
                 camera_action(cmd)
             else:
-                definition = ui.commandDefinitions.itemById(cmd)
-                if definition and definition.isValid and definition.isEnabled:
-                    if not definition.execute():
-                        log("Command execution rejected: "+cmd)
-                else:
-                    log("Unavailable command: "+cmd)
+                result = execute_definition(ui.commandDefinitions, cmd)
+                log(result + ": " + cmd)
         except Exception:
             log(traceback.format_exc())
 
@@ -213,7 +209,7 @@ def poll():
             if action != "__fms_export__" and (generation != hook.generation or time.monotonic()-created > 1.5 or not foreground()):
                 continue
             if not app.fireCustomEvent(EVENT,json.dumps({"command":action,"generation":generation,"created":created})):
-                log("Could not queue Fusion event: "+action)
+                log("Fusion event queue returned false (no retry): "+action)
                 if action == "__fms_export__":
                     export_status("error",message="Fusion event rejected")
         except Exception:

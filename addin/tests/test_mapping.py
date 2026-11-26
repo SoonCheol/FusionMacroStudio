@@ -59,4 +59,28 @@ class Test(unittest.TestCase):
         self.assertEqual(w/h,2)
         self.assertGreaterEqual(h,1e-6)
         with self.assertRaises(ValueError):m.zoom_extents(0,1,.85)
+    def test_native_command_without_is_enabled(self):
+        class NativeCommand:
+            def __init__(self, valid=True, accepted=True):
+                self.isValid=valid
+                self.accepted=accepted
+                self.calls=0
+            def execute(self):
+                self.calls+=1
+                return self.accepted
+        class Definitions:
+            def __init__(self, command):
+                self.command=command
+            def itemById(self, command):
+                if command == "DrawPolyline":
+                    return self.command
+        for valid, accepted, expected, calls in [
+            (True, True, "Command executed", 1),
+            (True, False, "Command execution rejected", 1),
+            (False, True, "Unavailable command", 0),
+        ]:
+            command=NativeCommand(valid,accepted)
+            self.assertEqual(m.execute_definition(Definitions(command),"DrawPolyline"),expected)
+            self.assertEqual(command.calls,calls)
+        self.assertEqual(m.execute_definition(Definitions(None),"DrawPolyline"),"Unavailable command")
 if __name__=="__main__":unittest.main()

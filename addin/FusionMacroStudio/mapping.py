@@ -88,3 +88,11 @@ def zoom_extents(width, height, factor):
         raise ValueError("Invalid camera extents")
     factor = min(max(factor, 1e-6/min(width,height)), 1e9/max(width,height))
     return width*factor,height*factor
+
+
+def execute_definition(definitions, command):
+    """Use the documented CommandDefinition interface, including native commands."""
+    definition = definitions.itemById(command)
+    if not definition or not definition.isValid:
+        return "Unavailable command"
+    return "Command executed" if definition.execute() else "Command execution rejected"
