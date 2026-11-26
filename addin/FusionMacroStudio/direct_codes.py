@@ -29,10 +29,14 @@ class DirectInput:
         self.short=False
         self.markers={}
         self.marker_edges=set()
+        self.marker_deadline=0
     def reset(self):
         self.cancel()
         self.markers.clear()
-    def route(self,cmd):
+        self.marker_edges.clear()
+    def route(self,cmd,now):
+        if self.markers:
+            self.marker_deadline=now+10
         mode=next(reversed(self.markers.values()),None) if self.markers else None
         return PAN.get(cmd,cmd) if mode=="__fms_hold_pan__" else VERTICAL.get(cmd,cmd) if mode=="__fms_hold_vertical__" else cmd
     def cancel(self):
@@ -41,8 +45,11 @@ class DirectInput:
     def tick(self,now,active):
         if not active:
             self.reset()
-        elif now>self.deadline:
-            self.cancel()
+        else:
+            if self.markers and now>self.marker_deadline:
+                self.reset()
+            elif now>self.deadline:
+                self.cancel()
     def down(self,vk,mods,now,active):
         self.tick(now,active)
         if vk in self.marker_edges:
@@ -50,6 +57,7 @@ class DirectInput:
         if active and mods==2 and vk in HOLD_MARKERS:
             self.marker_edges.add(vk)
             self.markers[vk]=HOLD_MARKERS[vk]
+            self.marker_deadline=now+10
             return True
         if vk in self.held:
             return True
@@ -84,11 +92,11 @@ class DirectInput:
         if self.short and len(self.frame)==1:
             i=self.frame[0]
             self.cancel()
-            return True,self.route(FAST_CAMERA[i]) if 0<=i<len(FAST_CAMERA) and FAST_CAMERA[i] in self.ids else None
+            return True,self.route(FAST_CAMERA[i],now) if 0<=i<len(FAST_CAMERA) and FAST_CAMERA[i] in self.ids else None
         if len(self.frame)!=4:
             return True,None
         index=0
         for digit in self.frame:
             index=index*11+digit
         self.cancel()
-        return True,self.route(self.ids[index]) if index<len(self.ids) else None
+        return True,self.route(self.ids[index],now) if index<len(self.ids) else None

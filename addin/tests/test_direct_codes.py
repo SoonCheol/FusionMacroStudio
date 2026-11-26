@@ -45,3 +45,13 @@ class DirectTest(unittest.TestCase):
         self.d.up(134,2.3,True)
         self.tap(135,2.4,2)
         self.assertEqual(self.tap(124+idx,2.43),(True,"__fms_orbit_left__"))
+
+    def test_held_marker_missing_release_expires(self):
+        self.d=m.DirectInput(tuple(m.FAST_CAMERA))
+        self.d.down(133,2,0,True)
+        self.d.tick(11,True)
+        self.assertFalse(self.d.markers)
+        self.assertFalse(self.d.marker_edges)
+        self.assertTrue(self.d.down(133,2,12,True))
+        self.assertIn(133,self.d.markers)
+        self.assertEqual(self.d.up(133,12.1,True),(True,None))
