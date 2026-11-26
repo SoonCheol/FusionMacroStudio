@@ -28,6 +28,21 @@ const url='http://127.0.0.1:8765/';
 async function settle(){
  await page.evaluate(async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(r))))});
 }
+async function verifyKeyGeometry(stage){
+ await settle();
+ const g=await page.evaluate(()=>{
+  const column=document.querySelector('.key-column').getBoundingClientRect(),keys=document.querySelector('#keys').getBoundingClientRect(),properties=document.querySelector('.properties').getBoundingClientRect();
+  const buttons=[...document.querySelectorAll('#keys .key')].map(e=>{const r=e.getBoundingClientRect();return {width:r.width,left:r.left,top:r.top,right:r.right}});
+  return {column:column.width,keys:keys.width,propertiesTop:properties.top,keysBottom:keys.bottom,buttons};
+ });
+ assert.ok(Math.abs(g.keys-g.column)<2,stage+' keys must fill the left column');
+ assert.ok(g.propertiesTop>=g.keysBottom,stage+' properties must remain below keys');
+ assert.equal(g.buttons.length,12);
+ assert.ok(g.buttons.every(b=>b.width>=50),stage+' key widths collapsed');
+ assert.ok(g.buttons.every(b=>Math.abs(b.width-g.buttons[0].width)<2),stage+' unequal widths');
+ assert.ok(g.buttons.slice(0,4).every(b=>Math.abs(b.top-g.buttons[0].top)<2),stage+' four columns');
+ assert.ok(g.buttons[4].top>g.buttons[0].top&&g.buttons[8].top>g.buttons[4].top,stage+' three rows');
+}
 async function verifyLabels(stage){
  await settle();
  const result=await page.evaluate(()=>{
@@ -56,6 +71,7 @@ try{
  assert.equal(await page.locator('#connect').isEnabled(),true);
  assert.equal(await page.locator('#connectionIndicator').getAttribute('data-state'),'offline');
  assert.equal(await page.locator('.key-column .properties').count(),1);
+ await verifyKeyGeometry('Disconnected keyboard');
  assert.equal(await page.locator('#read').innerText(),'기기에서 읽기');
  assert.equal(await page.locator('#write').innerText(),'기기에 쓰기');
  await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
@@ -66,6 +82,7 @@ try{
  await page.locator('#read').click();await page.locator('#deviceStatus').filter({hasText:'63/63'}).waitFor();
  assert.equal(await page.locator('#keys .key img').count(),0);
  await verifyLabels('Korean initial');
+ await verifyKeyGeometry('Read keyboard');
  await page.screenshot({path:'browser-preview/editor-ko.png'});
  await page.locator('#resetSearch').click();
  await verifyLabels('Korean all commands');
@@ -79,6 +96,7 @@ try{
  await page.locator('[data-command-id="DrawPolyline"]').dragTo(page.locator('#keys .key').first());
  assert.ok((await page.locator('#keys .key').first().innerText()).includes('선'));
  await verifyLabels('Assigned key');
+ await verifyKeyGeometry('Assigned keyboard 1280');
  await page.locator('#layers button').nth(1).click();assert.ok(!(await page.locator('#keys .key').first().innerText()).includes('선'));
  await page.locator('#layers button').first().click();assert.ok((await page.locator('#keys .key').first().innerText()).includes('선'));
  await page.locator('#theme').click();
