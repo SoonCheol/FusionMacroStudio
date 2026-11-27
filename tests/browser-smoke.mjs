@@ -154,6 +154,17 @@ try{
  for(const [id,i] of [['__fms_orbit_left__',0],['__fms_orbit_right__',2]]){await page.locator('[data-command-id="'+id+'"]').dragTo(page.locator('#knobs .knob').first().locator('.knob-action').nth(i));}
  assert.equal(await page.locator('.orbit-switch').first().isEnabled(),true);
  assert.equal(await page.locator('.orbit-switch').nth(1).isDisabled(),true);
+ await page.locator('[data-command-id="__fms_hold_pan__"]').dragTo(page.locator('#knobs .knob').first().locator('[data-slot="17"]'));
+ const preset=await page.evaluate(()=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1')).layers[0]);
+ assert.deepEqual(preset.bindings[17].steps,[{mods:7,code:61}]);
+ assert.ok(preset.bindings[16].steps.every(s=>s.mods===7));
+ assert.ok(preset.bindings[18].steps.every(s=>s.mods===7));
+ await page.locator('.knob-switch:not(.orbit-switch)').first().click();
+ assert.ok((await page.locator('#knobs .knob').first().innerText()).includes('왼쪽 팬'));
+ // Clear only held directions to return to the existing independent assignment test.
+ await page.locator('#knobs .knob').first().locator('.knob-cell .remove-command').first().click();
+ await page.locator('#knobs .knob').first().locator('.knob-cell .remove-command').last().click();
+ await page.locator('.knob-switch:not(.orbit-switch)').first().click();
  await page.locator('.orbit-switch').first().click();
  assert.equal(await page.locator('.orbit-switch').first().getAttribute('aria-checked'),'true');
  await verifySwitchGeometry('free orbit');

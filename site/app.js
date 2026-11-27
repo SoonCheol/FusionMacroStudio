@@ -78,6 +78,26 @@ function toggleOrbit(k,held){
  if(legacy&&pairedKnob(l,k)){l.fusion[press]={id:KNOB_MARKERS[k],name:'누름 감지'};setPending(press,commandBinding(codeMap.get(KNOB_MARKERS[k]),codeIds))}
  selected=null;renderKeys();state('노브 '+(k+1)+' · '+(next==='free'?'자유 오비트':'제한 오비트')+' · 쓰기 필요');
 }
+function setCommonMarker(l,k){
+ const press=17+3*k,id=KNOB_MARKERS[k],binding=commandBinding(codeMap.get(id),codeIds);
+ const prior=l.bindings[press];
+ if(l.fusion[press]?.id===id&&prior?.type==='key'&&prior.delay===0&&prior.steps?.length===1&&prior.steps[0].mods===binding.steps[0].mods&&prior.steps[0].code===binding.steps[0].code)return;
+ l.fusion[press]={id,name:'누름 감지'};setPending(press,binding);
+}
+function applyHoldPreset(k,mode){
+ const l=profile.layers[layer],slots=[16+3*k,18+3*k],planned=[];
+ for(const slot of slots){
+  const normal=l.fusion[slot]?.id;
+  if(!normal||!FAST_CAMERA.includes(orbitBase(normal)||normal))continue;
+  const held=presetHeld(normal,mode);
+  if(held&&pairEligible(normal,codeIds)&&pairEligible(held,codeIds))planned.push({slot,normal,held});
+ }
+ if(!planned.length){state('먼저 노브 좌회전 또는 우회전에 시점 제어 명령을 등록하세요.');return;}
+ if(planned.some(c=>{const old=pairInfo(l.bindings[c.slot],codeIds)?.held;return old&&old!==c.held})&&!confirm('기존 누른 채 회전 설정을 선택한 전환 방식으로 교체할까요?'))return;
+ for(const c of planned)stagePair(c.slot,c.normal,c.held);
+ setCommonMarker(l,k);
+ selected=17+3*k;selectedHeld=false;renderKeys();state('노브 '+(k+1)+' 누른 채 회전 설정 대기 · 쓰기 필요');
+}
 function stagePair(slot,normal,held){
  const k=Math.floor((slot-16)/3),l=profile.layers[layer],c=cameraMeta(normal);
  if(c)l.fusion[slot]={id:c.id,name:c.name};else delete l.fusion[slot];
@@ -98,10 +118,7 @@ function editHeld(slot,c){
  }
  stagePair(slot,normal,c?.id||null);
  if(pairedKnob(l,k)){
-  if(l.fusion[press]?.id!==KNOB_MARKERS[k]){
-   l.fusion[press]={id:KNOB_MARKERS[k],name:'누름 감지'};
-   setPending(press,commandBinding(codeMap.get(KNOB_MARKERS[k]),codeIds));
-  }
+  setCommonMarker(l,k);
  }else if(KNOB_MARKERS.includes(mode)||HOLD_MARKERS.includes(mode)){
   delete l.fusion[press];setPending(press,{type:'key',steps:[{mods:0,code:0}],delay:0});
  }
@@ -117,6 +134,7 @@ function assign(slot,c,held=false){
  if((desktopMode||!localMode)&&index===undefined){state('고정 코드표에 없는 명령');return}
  if(pair?.held&&!pairEligible(c.id,codeIds)){alert('고정 코드표에 등록된 실행 명령만 사용할 수 있습니다.');return}
  if(old?.id!==c.id&&(old||!old&&visibleBinding(l,slot)!=='미설정')&&!confirm('이 슬롯의 기존 설정을 교체할까요?'))return;
+ if(HOLD_MARKERS.includes(c.id)){applyHoldPreset(k,c.id);return}
  if(pair?.held){stagePair(slot,c.id,pair.held)}
  else{
   if(press&&!internalPress(c.id)){preserveLegacyHeld(l,k);knobViews[layer][k]=false}
@@ -130,11 +148,14 @@ function heldPreview(l,slot,mode){
  if(!viewReady)return null;const pair=pairInfo(l.bindings[slot],codeIds);if(pair)return cameraMeta(pair.held);if(!HOLD_MARKERS.includes(mode))return null;
  const original=l.fusion[slot]?.id;
  if(!FAST_CAMERA.includes(orbitBase(original)||original)||![2,3,5,6].includes(l.bindings[slot]?.steps?.length))return null;
+ return cameraMeta(presetHeld(original,mode));
+}
+function presetHeld(original,mode){
  let id=orbitBase(original)||original;
  if(mode==='__fms_hold_pan__'&&/^__fms_orbit_(left|right|up|down)__$/.test(id))id=id.replace('_orbit_','_pan_');
  if(mode==='__fms_hold_vertical__')id=({'__fms_orbit_left__':'__fms_orbit_up__','__fms_orbit_right__':'__fms_orbit_down__','__fms_pan_left__':'__fms_pan_up__','__fms_pan_right__':'__fms_pan_down__'})[id]||id;
  if(orbitBase(original)&&orbitBase(id)&&original!==orbitBase(original))id=orbitVariant(id,orbitMode(original,legacyOrbitMode));
- return cameraMeta(id);
+ return id;
 }
 function commandCell(button,slot,held,f,kind){
  const cell=document.createElement('div');cell.className=kind+'-cell';cell.append(button);
@@ -259,7 +280,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.5.0',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.5.1',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;

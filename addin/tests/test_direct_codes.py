@@ -116,7 +116,8 @@ class DirectTest(unittest.TestCase):
         self.d.down(0x73,7,1,True)
         self.d.up(0x73,1.1,True)
         self.assertEqual(pair(0,1.2),(True,"__fms_zoom_in__"))
-        self.assertEqual(pair(0,1.9),(True,"__fms_orbit_left__"))
+        self.assertEqual(pair(0,1.9),(True,"__fms_zoom_in__"))
+        self.assertEqual(pair(0,2.9),(True,"__fms_orbit_left__"))
 
     def test_common_prefix_required_and_mixed_frames_rejected(self):
         self.assertFalse(self.d.down(0x31,7,0,True))
@@ -132,3 +133,20 @@ class DirectTest(unittest.TestCase):
         self.tap(0x70,1,7)
         self.d.tick(1.1,False)
         self.assertFalse(self.d.down(0x30,7,1.2,True))
+
+    def test_common_marker_arrives_during_frame_and_releases_before_end(self):
+        self.d=m.DirectInput(tuple(m.COMMON_CAMERA))
+        value=2*(len(m.COMMON_CAMERA)+1)+9
+        digits="0"+str(value).zfill(3)
+        self.tap(0x71,0,7)
+        self.d.down(0x73,7,.02,True)
+        self.tap(0x30,.04,7)
+        self.d.up(0x73,.06,True)
+        for i,d in enumerate(digits[1:]):
+            result=self.tap(0x30+int(d),.08+i*.03,7)
+        self.assertEqual(result,(True,"__fms_zoom_in__"))
+        self.assertNotIn(127,self.d.pair_grace)
+        self.tap(0x71,.3,7)
+        for i,d in enumerate(digits):
+            result=self.tap(0x30+int(d),.32+i*.03,7)
+        self.assertEqual(result,(True,"__fms_orbit_left__"))

@@ -119,3 +119,5 @@
 - 공통 JS 코드 직접 실행 검증: 고정 ID 1238/1238 왕복, 고유 1238개, 3노브 시점쌍 1200/1200 왕복. 구형/공통 부분 프레임 혼합 차단 및 공통 누름 유지/조기 release grace, 포커스 이탈/일반 숫자 통과 단위 검사 추가. 실제 Python CI와 기기 동작 미확인.
 
 - CI 45865130094: desktop 및 validate 성공(JS/Python/Chromium), Windows PowerShell 설치기 self-test 실패. setup.ps1의 packageVersion이 0.4.3으로 남아 manifest 0.5.0과 불일치. 설치기 버전을 0.5.0으로 맞춤. 새 CI 및 실제 Fusion 실행 대기.
+
+- 사용자 실기: v0.5.0 새 일반 명령 Bluetooth 정상, 노브 누른 채 회전 재확인 요청. v0.5.1: 새 hold-pan/vertical 배정은 기존 시점 회전 양방향을 공통 pair로 변환하고 해당 노브 F4~F6 marker 사용(시점 명령 선등록 필요, 기존 held 교체 확인). 기존 marker ID가 같아도 구형 바인딩이면 새 marker로 갱신. 공통 입력만 조기 release 시작 .80초/연속 .70초(실기 조정 전 잠정); 프레임 진행 중 marker 눌림 및 실제 release 후 grace 잔류 처리 보완. 기존 코드 해석, 일반 명령, UI, 다른 슬롯 유지. 단위/브라우저 검증 추가. 실제 기기 타이밍 미확인.

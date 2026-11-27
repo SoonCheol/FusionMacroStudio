@@ -14,6 +14,9 @@ COMMON_MARKERS = {0x73+i:127+i for i in range(3)}
 # Device trace: marker up precedes first decoded rotation by 71–72 ms.
 PAIR_START_GRACE = .30
 PAIR_IDLE_GRACE = .50
+# Common-code transport: provisional larger window for wireless release/rotation skew.
+COMMON_START_GRACE = .80
+COMMON_IDLE_GRACE = .70
 PAN = {f"__fms_orbit_{d}__": f"__fms_pan_{d}__" for d in ("left","right","up","down")}
 VERTICAL = {"__fms_orbit_left__":"__fms_orbit_up__", "__fms_orbit_right__":"__fms_orbit_down__",
             "__fms_pan_left__":"__fms_pan_up__", "__fms_pan_right__":"__fms_pan_down__"}
@@ -129,15 +132,15 @@ class DirectInput:
         self.deadline=now+self.timeout
         # Orphan Ctrl-only symbols are reserved and never invoke a legacy command.
         return True
-    def finish_pair(self,marker,held,emulated,now):
+    def finish_pair(self,marker,held,emulated,now,idle_grace=PAIR_IDLE_GRACE):
         self.last_pair_mode='held-grace' if emulated else 'held-physical' if held else 'normal'
         if held and marker in self.markers:
             self.pair_physical.add(marker)
             self.marker_deadline=now+10
         elif emulated:
-            self.pair_grace[marker]=now+PAIR_IDLE_GRACE
+            self.pair_grace[marker]=now+idle_grace
         elif held and marker in self.pair_grace:
-            self.pair_grace[marker]=now+PAIR_IDLE_GRACE
+            self.pair_grace[marker]=now+idle_grace
     def up(self,vk,now,active):
         self.last_pair_mode=None
         self.tick(now,active)
@@ -205,7 +208,11 @@ class DirectInput:
     def marker_key(self,vk):
         return COMMON_MARKERS.get(vk,vk)
     def common_down(self,vk,mods,now,active):
-        if vk in self.common_markers or vk in self.common_held:
+        if vk in self.common_markers:
+            if self.marker_key(vk) in self.markers:
+                self.marker_deadline=now+10
+            return True
+        if vk in self.common_held:
             return True
         if active and mods==7 and vk in COMMON_MARKERS:
             self.common_markers.add(vk)
@@ -228,6 +235,15 @@ class DirectInput:
                 self.cancel()
             else:
                 self.common_frame.append(vk-0x30)
+                if self.common_frame[0]==0x71 and len(self.common_frame)==2 and vk<0x36:
+                    knob=(vk-0x30)%3
+                    marker=127+knob
+                    physical,grace=self.common_pair_state.get(knob,(False,False))
+                    physical=physical or marker in self.markers
+                    grace=grace or now<=self.pair_grace.get(marker,-1)
+                    self.common_pair_state[knob]=(physical,grace)
+                    if physical and marker in self.markers:
+                        self.pair_physical.add(marker)
         else:
             self.cancel()
             return False
@@ -236,7 +252,11 @@ class DirectInput:
     def common_up(self,vk,now,active):
         if vk in self.common_markers:
             self.common_markers.remove(vk)
-            return self.up(COMMON_MARKERS[vk],now,active)
+            marker=COMMON_MARKERS[vk]
+            result=self.up(marker,now,active)
+            if active and marker in self.pair_grace:
+                self.pair_grace[marker]=now+COMMON_START_GRACE
+            return result
         if vk not in self.common_held:
             return False,None
         self.common_held.remove(vk)
@@ -282,5 +302,9 @@ class DirectInput:
             i=v%n if held else v//n
             if i<len(COMMON_CAMERA) and COMMON_CAMERA[i] not in self.ids:return True,None
             cmd=COMMON_CAMERA[i] if i<len(COMMON_CAMERA) else None
-        self.finish_pair(127+knob,held,emulated,now)
+        marker=127+knob
+        # A real physical release during the frame must not latch the next detent.
+        if physical and marker not in self.markers:
+            self.pair_grace.pop(marker,None)
+        self.finish_pair(marker,held,emulated,now,COMMON_IDLE_GRACE)
         return True,cmd
