@@ -41,7 +41,15 @@ function probeControls(){
 function controls(){updateConnection();probeControls();$('bluetoothWizardOpen').disabled=busy||!localReady||!codeReady;for(const id of ['connect','read','write','open','save','assign','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':''); $('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;syncShortcutEditor();syncRegister();$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
 async function run(fn){if(busy)return;busy=true;controls();try{await fn()}catch(e){state(e.message);log(e.message)}finally{busy=false;renderKeys();controls()}}
 function keyName(code){if(byUsage.has(code))return byUsage.get(code).label;if(code>=104&&code<=115)return 'F'+(code-91);if(code>=58&&code<=69)return 'F'+(code-57);if(code>=4&&code<=29)return String.fromCharCode(code+61).toUpperCase();return ({40:'Enter',41:'Esc',42:'Backspace',43:'Tab',44:'Space',79:'→',80:'←',81:'↓',82:'↑'})[code]||'0x'+Number(code).toString(16)}
-function bindingName(b){if(!b)return '미설정';if(b.type==='media')return '미디어 0x'+b.usage.toString(16);if(b.type==='mouse')return '마우스 '+({1:'클릭',3:'휠',5:'이동'}[b.action]||'동작');if(b.type!=='key')return '기존 HID 설정';if(b.steps.length===1&&!b.steps[0].mods&&!b.steps[0].code)return '미설정';return b.steps.map(s=>[s.mods&1?'Ctrl':'',s.mods&2?'Shift':'',s.mods&4?'Alt':'',s.mods&8?'Win':'',s.code?keyName(s.code):''].filter(Boolean).join('+')).join(', ')}
+// USB HID Consumer Page: https://www.usb.org/hid
+const volumeKeys=new Map([[0xea,'볼륨 감소'],[0xe9,'볼륨 증가'],[0xe2,'음소거']]);
+function knobKeyBinding(value){
+ if(value.startsWith('media:')){
+  const usage=Number(value.slice(6));return volumeKeys.has(usage)?{type:'media',usage,delay:0}:null;
+ }
+ const code=Number(value);return value&&Number.isInteger(code)&&code>0&&byUsage.has(code)?{type:'key',steps:[{mods:0,code}],delay:0}:null;
+}
+function bindingName(b){if(!b)return '미설정';if(b.type==='media')return volumeKeys.get(b.usage)||'미디어 0x'+b.usage.toString(16);if(b.type==='mouse')return '마우스 '+({1:'클릭',3:'휠',5:'이동'}[b.action]||'동작');if(b.type!=='key')return '기존 HID 설정';if(b.steps.length===1&&!b.steps[0].mods&&!b.steps[0].code)return '미설정';return b.steps.map(s=>[s.mods&1?'Ctrl':'',s.mods&2?'Shift':'',s.mods&4?'Alt':'',s.mods&8?'Win':'',s.code?keyName(s.code):''].filter(Boolean).join('+')).join(', ')}
 function art(id){id=orbitBase(id)||id;const el=document.createElement('img');const meta=commands.find(c=>c.id===id)||{};const original=icons.has(id);el.className='art '+(original?'original-art':'vector-art');el.src=original?icons.get(id):iconUrl(id,meta);el.alt='';el.title=original?'Fusion 로컬 원본 아이콘':Object.hasOwn(referenceIcons,id)?'공식 원본 참조 재드로잉':'미검수 임시 아이콘';el.draggable=false;return el}
 function commandName(c){const base=orbitBase(c.id);if(base)c=commands.find(x=>x.id===base)||c;return language==='en'?(c.en||c.name):c.name}
 function setPending(slot,b){if(localMode)syncDirty=true;profile.layers[layer].bindings[slot]=b;pending.set(layer+':'+slot,{layer,slot,binding:b});persist()}
@@ -250,11 +258,12 @@ function markRegisterSource(source){
 function syncRegister(){
  const ready=!busy&&localReady&&viewReady&&readReady&&codeReady&&selected!==null;
  const shortcut=registerSource==='shortcut'&&selected<=12&&!selectedHeld&&!shortcutIssue(shortcutMods,shortcutCode);
- const key=registerSource==='key'&&selected>=16&&!selectedHeld&&!!$('keyCode').value;
+ const knobBinding=knobKeyBinding($('keyCode').value);
+ const key=registerSource==='key'&&selected>=16&&!selectedHeld&&!!knobBinding;
  const fusion=registerSource==='fusion'&&!!chosen;
  const button=$('assign');
  button.disabled=!(ready&&(shortcut||key||fusion));
- const label=shortcut?shortcutLabel(shortcutMods,shortcutCode):key?keyName(Number($('keyCode').value)):fusion?commandName(chosen):'';
+ const label=shortcut?shortcutLabel(shortcutMods,shortcutCode):key?bindingName(knobBinding):fusion?commandName(chosen):'';
  button.title=label?'등록할 명령: '+label:'Fusion 명령 또는 단축키를 선택하세요.';
  const info=$('selectedInfo');info.title=info.textContent;
 }
@@ -343,15 +352,19 @@ function clearLayers(all){
  if(localMode)syncDirty=true;selected=null;persist();renderKeys();state('지우기 대기 · 쓰기 필요');
 }
 $('clearLayer').onclick=()=>clearLayers(false);$('clearAll').onclick=()=>clearLayers(true);
+const volumeGroup=document.createElement('optgroup');volumeGroup.label='볼륨 제어';
+for(const [usage,name] of volumeKeys)volumeGroup.append(new Option(name,'media:'+usage));
+$('keyCode').prepend(volumeGroup);$('keyCode').value='';
 $('keyCode').onchange=()=>{markRegisterSource('key');syncRegister()};function applyKnobKey(){
  if(selected===null||selected<16||!$('keyCode').value||busy||!viewReady||!readReady||selectedHeld)return;
- const l=profile.layers[layer],slot=selected,prior=l.bindings[slot],code=Number($('keyCode').value);
+ const l=profile.layers[layer],slot=selected,prior=l.bindings[slot],binding=knobKeyBinding($('keyCode').value);
+ if(!binding)return;
  if(pairInfo(prior,codeIds)?.held){state('누른 채 회전 설정을 먼저 제거하세요');return;}
- const same=!l.fusion[slot]&&prior?.type==='key'&&prior.delay===0&&prior.steps?.length===1&&prior.steps[0].mods===0&&prior.steps[0].code===code;
- if(same){state('이미 등록된 일반 키입니다');return;}
+ const same=!l.fusion[slot]&&prior?.type===binding.type&&prior.delay===0&&(binding.type==='media'?prior.usage===binding.usage:prior.steps?.length===1&&prior.steps[0].mods===0&&prior.steps[0].code===binding.steps[0].code);
+ if(same){state(binding.type==='media'?'이미 등록된 볼륨 명령입니다':'이미 등록된 일반 키입니다');return;}
  if((visibleCommand(l,slot,false)||visibleBinding(l,slot)!=='미설정')&&!confirm('이 슬롯의 기존 설정을 교체할까요?'))return;
  if(pressSlot(slot)){const k=(slot-17)/3;preserveLegacyHeld(l,k);knobViews[layer][k]=false}
- delete l.fusion[slot];setPending(slot,{type:'key',steps:[{mods:0,code}],delay:0});registerSource=null;renderKeys();state('일반 키 등록 대기 · 쓰기 필요');
+ delete l.fusion[slot];setPending(slot,binding);registerSource=null;renderKeys();state((binding.type==='media'?bindingName(binding):'일반 키')+' 등록 대기 · 쓰기 필요');
 };$('orientation').value=orientation;$('orientation').onchange=e=>{orientation=e.target.value;localStorage.setItem(store+'.orientation',orientation);renderKeys()};
 $('camera').onclick=()=>{cameraOnly=true;allMode=false;$('search').value='';renderCommands()};$('more').onclick=()=>{visibleLimit+=400;renderCommands()};$('search').oninput=()=>{visibleLimit=400;renderCommands()};$('resetSearch').onclick=()=>{$('search').value='';cameraOnly=false;allMode=true;renderCommands()};for(const lang of ['ko','en'])$(lang).onclick=()=>{language=lang;for(const x of ['ko','en'])$(x).setAttribute('aria-pressed',String(x===lang));renderCommands();renderKeys()};$('closeDetail').onclick=()=>$('detail').close();
 $('icons').onclick=()=>$('iconFiles').click();$('iconFiles').onchange=async e=>{let added=0;try{for(const f of e.target.files){if(!/\.png$/i.test(f.name)||f.size>768*1024)continue;const id=f.name.replace(/\.png$/i,'');if(icons.has(id))URL.revokeObjectURL(icons.get(id));await putAsset({id:'icon:'+id,value:f});icons.set(id,URL.createObjectURL(f));added++}renderCommands();renderKeys();state('원본 아이콘 '+added+'개 저장')}catch(err){state('원본 아이콘 저장 실패: '+err.message)}finally{e.target.value=''}};

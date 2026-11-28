@@ -334,6 +334,28 @@ try{
  assert.match(await page.locator('#wizardResult').innerText(),/공통 명령 코드용 전체 키 수신 정상/);
  await page.locator('#wizardNext').click();
  await page.locator('#wizardMessage').filter({hasText:'원래 빈 상태로 복원'}).waitFor();
+ // Independent volume configuration, mock USB write and full readback.
+ await page.goto(url);await page.locator('#commands .command-card').first().waitFor();
+ await page.locator('#connect').click();await page.locator('#deviceStatus').filter({hasText:'연결됨 · 읽기 필요'}).waitFor();
+ await page.locator('#read').click();await page.locator('#deviceStatus').filter({hasText:'63/63'}).waitFor();
+ const volumeKnob=page.locator('#knobs .knob').first();
+ for(const [slot,usage,label] of [[16,234,'볼륨 감소'],[17,226,'음소거'],[18,233,'볼륨 증가']]){
+  await volumeKnob.locator('[data-slot="'+slot+'"]').click();
+  await page.locator('#keyCode').selectOption('media:'+usage);
+  assert.equal(await page.locator('#assign').isEnabled(),true);
+  await page.locator('#assign').click();
+  assert.deepEqual(await page.evaluate(s=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1')).layers[0].bindings[s],slot),{type:'media',usage,delay:0});
+  assert.ok((await volumeKnob.locator('[data-slot="'+slot+'"]').innerText()).includes(label));
+ }
+ page.once('dialog',d=>d.accept());
+ await page.locator('#write').click();await page.locator('#deviceStatus').filter({hasText:'쓰기 및 전체 슬롯 재읽기 확인 3개'}).waitFor();
+ for(const [slot,usage] of [[16,234],[17,226],[18,233]])assert.deepEqual(await page.evaluate(s=>window.fakeRecord(1,s).slice(3,12),slot),[2,0,0,0,0,0,0,usage,0]);
+ await page.locator('#read').click();await page.locator('#deviceStatus').filter({hasText:'63/63'}).waitFor();
+ for(const [slot,usage,label] of [[16,234,'볼륨 감소'],[17,226,'음소거'],[18,233,'볼륨 증가']]){
+  const binding=await page.evaluate(s=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1')).layers[0].bindings[s],slot);
+  assert.equal(binding.type,'media');assert.equal(binding.usage,usage);
+  assert.ok((await volumeKnob.locator('[data-slot="'+slot+'"]').innerText()).includes(label));
+ }
  await page.goto(url+'icons.html');await page.locator('#gallery .command-card').first().waitFor();
  await verifyLabels('Icon gallery');
  await page.screenshot({path:'browser-preview/gallery.png'});
