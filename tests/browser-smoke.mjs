@@ -221,6 +221,26 @@ try{
  await page.locator('[data-command-id="DrawPolyline"]').dragTo(firstKnob.locator('[data-slot="17"]'));
  assert.equal(await firstKnob.locator('.knob-switch:not(.orbit-switch)').isDisabled(),true);
  assert.ok((await firstKnob.locator('[data-slot="17"]').innerText()).includes('선'));
+ // A raw knob key must not silently replace an existing command or its held directions.
+ await firstKnob.locator('[data-slot="17"]').click();
+ await page.locator('#keyCode').selectOption('40');
+ const beforeKnobReplace=await page.evaluate(()=>localStorage.getItem('fusion-macro-studio.v1'));
+ const beforeKnobPending=await page.evaluate(()=>localStorage.getItem('fusion-macro-studio.v1.pending'));
+ page.once('dialog',d=>d.dismiss());
+ await page.locator('#assign').click();
+ assert.equal(await page.evaluate(()=>localStorage.getItem('fusion-macro-studio.v1')),beforeKnobReplace);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('fusion-macro-studio.v1.pending')),beforeKnobPending);
+ page.once('dialog',d=>d.accept());
+ await page.locator('#assign').click();
+ const rawKnob=await page.evaluate(()=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1')).layers[0]);
+ const beforeKnob=JSON.parse(beforeKnobReplace).layers[0];
+ assert.deepEqual(rawKnob.bindings[17].steps,[{mods:0,code:40}]);
+ assert.equal(rawKnob.fusion[17],undefined);
+ assert.deepEqual(rawKnob.bindings[16],beforeKnob.bindings[16]);
+ assert.deepEqual(rawKnob.bindings[18],beforeKnob.bindings[18]);
+ await page.locator('#keyCode').selectOption('40');
+ await page.locator('#assign').click();
+ assert.equal(await page.locator('#deviceStatus').innerText(),'이미 등록된 일반 키입니다');
  await firstKnob.locator('.knob-cell').nth(1).locator('.remove-command').click();
  assert.equal(await firstKnob.locator('.knob-switch:not(.orbit-switch)').isEnabled(),true);
  await firstKnob.locator('.knob-switch:not(.orbit-switch)').click();
