@@ -81,3 +81,15 @@
 .input-capture{padding:10px;border:1px solid var(--line);border-radius:6px;min-height:34px;font-size:12px}.input-capture:focus{outline:2px solid var(--selected)}
 
 #bluetoothWizard{width:min(490px,92vw)}#wizardMessage{white-space:pre-line;line-height:1.6}#wizardResult{white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px}#wizardNext:not(:disabled){background:var(--accent);color:white}
+
+/* Compact DeckForge-style shortcut fields, scoped to the twelve key properties. */
+#shortcutEditor[hidden],#knobKeyEditor[hidden]{display:none}
+#shortcutEditor{display:grid;gap:8px;margin-top:8px;border-top:1px solid var(--line);padding-top:10px}
+.shortcut-mode,.shortcut-choices,.shortcut-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.shortcut-mode{font-size:12px}.shortcut-mode label{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.shortcut-mode input{margin:0;accent-color:var(--accent)}
+.shortcut-field{display:flex;align-items:center;gap:8px;font-size:12px}
+.shortcut-field label{white-space:nowrap}.shortcut-field input{flex:1;min-width:0;width:100%;font-size:12px}
+.shortcut-field input:disabled{opacity:1;color:var(--fg)}
+.shortcut-choices button,.shortcut-choices select{padding:5px 6px;font-size:11px;max-width:100%;min-width:0}
+.shortcut-actions{justify-content:space-between}.shortcut-actions .hint{flex:1;min-width:0;overflow-wrap:anywhere}.shortcut-actions button{margin-left:auto;white-space:nowrap}

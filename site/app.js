@@ -5,6 +5,7 @@ import {iconUrl,iconKind,referenceIcons} from './command-icons.js';
 import {setWordLabel,fitLabels,watchLabels} from './word-labels.js';
 import {setupInputComparison,probeBinding} from './input-comparison.js';
 import {setupBluetoothWizard} from './bluetooth-wizard.js';
+import {GROUPS,MODIFIERS,byUsage,captureShortcut,shortcutLabel,shortcutIssue,shortcutBinding} from './shortcut-keys.js';
 const $=id=>document.getElementById(id), store='fusion-macro-studio.v1';let profile=blank(),layer=0,selected=null,chosen=null,language='ko',area='',panel='',commands=[],tree=[],overlay=null,orientation='normal',pending=new Map(),busy=false,readReady=false,viewReady=false,restoreStaged=false;const desktopMode=!!window.fmsDesktop;const localMode=desktopMode||location.origin==='http://127.0.0.1:18472';let syncDirty=false,revision='',localReady=!localMode;const icons=new Map();let catalog;let codeIds=[],codeMap=new Map(),codeReady=false;let imported=[],allMode=false,visibleLimit=400;
 const cameraCommands=[['fit','전체 보기','Fit view'],['zoom_in','확대','Zoom in'],['zoom_out','축소','Zoom out'],['orbit_left','왼쪽 오비트','Orbit left'],['orbit_right','오른쪽 오비트','Orbit right'],['orbit_up','위 오비트','Orbit up'],['orbit_down','아래 오비트','Orbit down'],['pan_left','왼쪽 팬','Pan left'],['pan_right','오른쪽 팬','Pan right'],['pan_up','위쪽 팬','Pan up'],['pan_down','아래쪽 팬','Pan down'],['pivot_auto','회전 중심 자동','Pivot auto'],['pivot_body','선택 바디 중심','Selected body pivot'],['pivot_origin','원점 중심','Origin pivot'],['pivot_camera','카메라 중심','Camera pivot'],['pivot_point','선택 위치 중심','Pick pivot'],['hold_pan','누른 채 회전: 팬','Hold to pan'],['hold_vertical','누른 채 회전: 상하','Hold vertical orbit']].map(([id,name,en])=>({id:'__fms_'+id+'__',name,en,description:'Fusion Macro Studio camera action'}));let cameraOnly=false;const knobViews=Array.from({length:3},()=>[false,false,false]);let selectedHeld=false,legacyOrbitMode="constrained";
 try{let p=JSON.parse(localStorage.getItem(store)||'null');if(p)profile=validProfile(p);for(const c of JSON.parse(localStorage.getItem(store+'.pending')||'[]')){try{reports(c.layer,c.slot,c.binding);if(JSON.stringify(profile.layers[c.layer].bindings[c.slot])===JSON.stringify(c.binding))pending.set(c.layer+':'+c.slot,c)}catch{}}syncDirty=localMode&&localStorage.getItem(store+'.syncDirty')==='1';revision=localStorage.getItem(store+'.revision')||'';orientation=localStorage.getItem(store+'.orientation')||'normal'}catch{}
@@ -37,10 +38,10 @@ function probeControls(){
  $('probeStatus').textContent=reason||'레이어 '+(layer+1)+' · K'+current+'에 시험 코드 배정 가능';
  $('stageBtTest').title=reason||'선택한 빈 키에 시험 코드를 배정합니다.';
 }
-function controls(){updateConnection();probeControls();$('bluetoothWizardOpen').disabled=busy||!localReady||!codeReady;for(const id of ['connect','read','write','open','save','assign','setKey','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':'');$('assign').disabled=busy||!viewReady||!readReady||!codeReady||selected===null||!chosen;$('setKey').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
+function controls(){updateConnection();probeControls();$('bluetoothWizardOpen').disabled=busy||!localReady||!codeReady;for(const id of ['connect','read','write','open','save','assign','setKey','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':'');$('assign').disabled=busy||!viewReady||!readReady||!codeReady||selected===null||!chosen;$('setKey').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;syncShortcutEditor();$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
 async function run(fn){if(busy)return;busy=true;controls();try{await fn()}catch(e){state(e.message);log(e.message)}finally{busy=false;renderKeys();controls()}}
-function keyName(code){if(code>=104&&code<=115)return 'F'+(code-91);if(code>=58&&code<=69)return 'F'+(code-57);if(code>=4&&code<=29)return String.fromCharCode(code+61).toUpperCase();return ({40:'Enter',41:'Esc',42:'Backspace',43:'Tab',44:'Space',79:'→',80:'←',81:'↓',82:'↑'})[code]||'0x'+Number(code).toString(16)}
-function bindingName(b){if(!b)return '미설정';if(b.type==='media')return '미디어 0x'+b.usage.toString(16);if(b.type==='mouse')return '마우스 '+({1:'클릭',3:'휠',5:'이동'}[b.action]||'동작');if(b.type!=='key')return '기존 HID 설정';if(b.steps.length===1&&!b.steps[0].mods&&!b.steps[0].code)return '미설정';return b.steps.map(s=>[s.mods&1?'Ctrl':'',s.mods&2?'Shift':'',s.mods&4?'Alt':'',s.mods&8?'Win':'',keyName(s.code)].filter(Boolean).join('+')).join(', ')}
+function keyName(code){if(byUsage.has(code))return byUsage.get(code).label;if(code>=104&&code<=115)return 'F'+(code-91);if(code>=58&&code<=69)return 'F'+(code-57);if(code>=4&&code<=29)return String.fromCharCode(code+61).toUpperCase();return ({40:'Enter',41:'Esc',42:'Backspace',43:'Tab',44:'Space',79:'→',80:'←',81:'↓',82:'↑'})[code]||'0x'+Number(code).toString(16)}
+function bindingName(b){if(!b)return '미설정';if(b.type==='media')return '미디어 0x'+b.usage.toString(16);if(b.type==='mouse')return '마우스 '+({1:'클릭',3:'휠',5:'이동'}[b.action]||'동작');if(b.type!=='key')return '기존 HID 설정';if(b.steps.length===1&&!b.steps[0].mods&&!b.steps[0].code)return '미설정';return b.steps.map(s=>[s.mods&1?'Ctrl':'',s.mods&2?'Shift':'',s.mods&4?'Alt':'',s.mods&8?'Win':'',s.code?keyName(s.code):''].filter(Boolean).join('+')).join(', ')}
 function art(id){id=orbitBase(id)||id;const el=document.createElement('img');const meta=commands.find(c=>c.id===id)||{};const original=icons.has(id);el.className='art '+(original?'original-art':'vector-art');el.src=original?icons.get(id):iconUrl(id,meta);el.alt='';el.title=original?'Fusion 로컬 원본 아이콘':Object.hasOwn(referenceIcons,id)?'공식 원본 참조 재드로잉':'미검수 임시 아이콘';el.draggable=false;return el}
 function commandName(c){const base=orbitBase(c.id);if(base)c=commands.find(x=>x.id===base)||c;return language==='en'?(c.en||c.name):c.name}
 function setPending(slot,b){if(localMode)syncDirty=true;profile.layers[layer].bindings[slot]=b;pending.set(layer+':'+slot,{layer,slot,binding:b});persist()}
@@ -234,6 +235,57 @@ $('assign').onclick=()=>assign(selected,chosen,selectedHeld);function clearSelec
  renderKeys();state('명령 제거 대기 · 쓰기 필요');
 }
 
+// Draft shortcut state is scoped to the selected physical button and current binding.
+let shortcutMode='keyboard',shortcutTarget='',shortcutMods=0,shortcutCode=0;
+const shortcutButtons=[],shortcutMenus=[];
+function syncShortcutEditor(){
+ const enabled=selected!==null&&selected<=12&&viewReady&&readReady&&!selectedHeld;
+ $('shortcutEditor').hidden=!enabled;
+ $('knobKeyEditor').hidden=!(selected!==null&&selected>=16&&viewReady&&readReady);
+ const l=profile.layers[layer],b=enabled?l.bindings[selected]:null;
+ const target=enabled?layer+':'+selected+':'+JSON.stringify(b||null):'';
+ if(target!==shortcutTarget){
+  shortcutTarget=target;shortcutMods=0;shortcutCode=0;
+  if(!l.fusion[selected]&&b?.type==='key'&&b.steps?.length===1&&byUsage.has(b.steps[0].code)&&b.steps[0].mods<=15){shortcutMods=b.steps[0].mods;shortcutCode=b.steps[0].code;}
+ }
+ const field=$('shortcutCapture'),selectMode=shortcutMode==='select';
+ field.value=shortcutLabel(shortcutMods,shortcutCode);
+ field.placeholder=selectMode?'아래에서 키 선택':'클릭하여 단축키 입력';
+ field.disabled=!enabled||busy||selectMode;
+ for(const [bit,button] of shortcutButtons){button.disabled=!enabled||busy||!selectMode;button.setAttribute('aria-pressed',String(!!(shortcutMods&bit)))}
+ for(const [group,menu] of shortcutMenus){menu.disabled=!enabled||busy||!selectMode;menu.value=group.keys.some(k=>k.usage===shortcutCode)?String(shortcutCode):''}
+ for(const radio of document.querySelectorAll('[name=shortcutMode]'))radio.disabled=!enabled||busy;
+ const issue=shortcutIssue(shortcutMods,shortcutCode);
+ $('shortcutNotice').textContent=shortcutCode?(issue||(shortcutCode>=104&&shortcutCode<=115?'F13~F24는 이 기기의 블루투스 입력이 확인되지 않았습니다.':'')):'';
+ $('shortcutApply').disabled=!enabled||busy||!!issue;
+}
+for(const [label,bit] of MODIFIERS){
+ const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-pressed','false');
+ b.onclick=()=>{shortcutMods^=bit;syncShortcutEditor()};shortcutButtons.push([bit,b]);$('shortcutChoices').append(b);
+}
+for(const group of GROUPS){
+ const menu=document.createElement('select');menu.setAttribute('aria-label',group.label);menu.append(new Option(group.label,''));
+ let category='',target=menu;
+ for(const key of group.keys){
+  if(key.category!==category){category=key.category;target=category?document.createElement('optgroup'):menu;if(category){target.label=category;menu.append(target)}}
+  target.append(new Option(key.label,String(key.usage)));
+ }
+ menu.onchange=()=>{shortcutCode=Number(menu.value)||0;syncShortcutEditor()};shortcutMenus.push([group,menu]);$('shortcutChoices').append(menu);
+}
+for(const radio of document.querySelectorAll('[name=shortcutMode]'))radio.onchange=()=>{if(radio.checked){shortcutMode=radio.value;syncShortcutEditor();if(shortcutMode==='keyboard')$('shortcutCapture').focus()}};
+$('shortcutCapture').onkeydown=e=>{
+ if(shortcutMode!=='keyboard'||$('shortcutCapture').disabled)return;
+ e.preventDefault();e.stopPropagation();if(e.repeat)return;
+ const key=captureShortcut(e);if(key){shortcutMods=key.mods;shortcutCode=key.code;syncShortcutEditor()}
+};
+$('shortcutApply').onclick=()=>{
+ if(busy||!viewReady||!readReady||selected===null||selected>12||selectedHeld)return;
+ const b=shortcutBinding(shortcutMods,shortcutCode),l=profile.layers[layer],prior=l.bindings[selected];
+ const same=prior?.type==='key'&&prior.delay===0&&prior.steps?.length===1&&prior.steps[0].mods===shortcutMods&&prior.steps[0].code===shortcutCode&&!l.fusion[selected];
+ if(same){state('이미 등록된 단축키입니다');return;}
+ if((l.fusion[selected]||bindingName(prior)!=='미설정')&&!confirm('기존 설정을 단축키로 교체할까요?'))return;
+ delete l.fusion[selected];setPending(selected,b);renderKeys();state('단축키 등록 대기 · 쓰기 필요');
+};
 for(const code of [...Array.from({length:26},(_,i)=>i+4),40,41,42,43,44,...Array.from({length:12},(_,i)=>i+58),79,80,81,82,...Array.from({length:12},(_,i)=>i+104)]){let o=document.createElement('option');o.value=code;o.textContent=keyName(code);$('keyCode').append(o)}
 function clearLayers(all){
  if(busy||!viewReady||!readReady||!device.verified)return;
@@ -280,7 +332,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.5.1',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.5.2',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;
