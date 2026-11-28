@@ -127,6 +127,8 @@ try{
  assert.equal(await page.locator('#shortcutPreset').inputValue(),'copy');
  assert.equal(await page.locator('#shortcutFunction').innerText(),'복사');
  assert.equal(await page.locator('#shortcutPreset option').count(),71);
+ assert.deepEqual(await page.locator('#shortcutChoices select[aria-label="특수 키"] > option').allTextContents(),['특수 키','Backspace','Caps Lock','Delete','End','Enter','Esc','Home','Insert','Menu','Num Lock','Pause','PgDn','PgUp','PrtSc','Scroll Lock','Space','Tab','←','↑','→','↓']);
+ assert.deepEqual(await page.locator('#shortcutChoices select[aria-label="기능 키"] > option').allTextContents(),['기능 키',...Array.from({length:24},(_,i)=>'F'+(i+1))]);
  await page.locator('#shortcutPreset').selectOption('screenshot');
  assert.equal(await page.locator('#shortcutCapture').inputValue(),'Shift + Win + S');
  assert.equal(await page.locator('#shortcutFunction').innerText(),'영역 캡처');

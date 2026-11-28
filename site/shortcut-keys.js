@@ -4,7 +4,7 @@ const entry=(code,label,usage,category='')=>({code,label,usage,category});
 const range=(n,fn)=>Array.from({length:n},(_,i)=>fn(i));
 export const GROUPS=[
  {label:'특수 키',keys:[
- ...[['PrintScreen','PrtSc',70],['PageUp','PgUp',75],['PageDown','PgDn',78],['Home','Home',74],['End','End',77],['Insert','Insert',73],['Delete','Delete',76],['ArrowLeft','←',80],['ArrowUp','↑',82],['ArrowRight','→',79],['ArrowDown','↓',81],['Enter','Enter',40],['Space','Space',44],['Tab','Tab',43],['Escape','Esc',41],['Backspace','Backspace',42],['Pause','Pause',72],['ScrollLock','Scroll Lock',71],['CapsLock','Caps Lock',57],['NumLock','Num Lock',83],['ContextMenu','Menu',101]].map(a=>entry(...a)),
+ ...[['Backspace','Backspace',42],['CapsLock','Caps Lock',57],['Delete','Delete',76],['End','End',77],['Enter','Enter',40],['Escape','Esc',41],['Home','Home',74],['Insert','Insert',73],['ContextMenu','Menu',101],['NumLock','Num Lock',83],['Pause','Pause',72],['PageDown','PgDn',78],['PageUp','PgUp',75],['PrintScreen','PrtSc',70],['ScrollLock','Scroll Lock',71],['Space','Space',44],['Tab','Tab',43],['ArrowLeft','←',80],['ArrowUp','↑',82],['ArrowRight','→',79],['ArrowDown','↓',81]].map(a=>entry(...a)),
  ...range(10,i=>entry('Numpad'+i,'Num '+i,i===0?98:88+i,'숫자 키패드')),
  ...[['NumpadAdd','Num +',87],['NumpadSubtract','Num -',86],['NumpadMultiply','Num *',85],['NumpadDivide','Num /',84],['NumpadDecimal','Num .',99],['NumpadEnter','Num Enter',88]].map(a=>entry(...a,'숫자 키패드'))]},
  {label:'기능 키',keys:range(24,i=>entry('F'+(i+1),'F'+(i+1),i<12?58+i:104+i-12))},
