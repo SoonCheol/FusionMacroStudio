@@ -38,7 +38,7 @@ function probeControls(){
  $('probeStatus').textContent=reason||'레이어 '+(layer+1)+' · K'+current+'에 시험 코드 배정 가능';
  $('stageBtTest').title=reason||'선택한 빈 키에 시험 코드를 배정합니다.';
 }
-function controls(){updateConnection();probeControls();$('bluetoothWizardOpen').disabled=busy||!localReady||!codeReady;for(const id of ['connect','read','write','open','save','assign','setKey','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':'');$('assign').disabled=busy||!viewReady||!readReady||!codeReady||selected===null||!chosen;$('setKey').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;$('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;syncShortcutEditor();$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
+function controls(){updateConnection();probeControls();$('bluetoothWizardOpen').disabled=busy||!localReady||!codeReady;for(const id of ['connect','read','write','open','save','assign','keyCode','orientation'])$(id).disabled=busy||!localReady; $('connect').disabled=busy||!localReady||device.verified; $('read').disabled=busy||!localReady||!codeReady||!device.verified;$('write').disabled=busy||!localReady||!codeReady||!device.verified||!readReady||(!pending.size&&!(localMode&&syncDirty));$('pendingCount').textContent=viewReady?'미전송 변경 '+pending.size+'개'+(localMode&&syncDirty?' · Fusion 반영 대기':''):'장치 읽기 전'+(pending.size?' · 이전 미전송 변경 '+pending.size+'개 보관 중':''); $('keyCode').disabled=busy||!viewReady||!readReady||selected===null||selectedHeld;syncShortcutEditor();syncRegister();$('save').disabled=busy||!viewReady;for(const id of ['clearLayer','clearAll'])$(id).disabled=busy||!viewReady||!readReady||!device.verified}
 async function run(fn){if(busy)return;busy=true;controls();try{await fn()}catch(e){state(e.message);log(e.message)}finally{busy=false;renderKeys();controls()}}
 function keyName(code){if(byUsage.has(code))return byUsage.get(code).label;if(code>=104&&code<=115)return 'F'+(code-91);if(code>=58&&code<=69)return 'F'+(code-57);if(code>=4&&code<=29)return String.fromCharCode(code+61).toUpperCase();return ({40:'Enter',41:'Esc',42:'Backspace',43:'Tab',44:'Space',79:'→',80:'←',81:'↓',82:'↑'})[code]||'0x'+Number(code).toString(16)}
 function bindingName(b){if(!b)return '미설정';if(b.type==='media')return '미디어 0x'+b.usage.toString(16);if(b.type==='mouse')return '마우스 '+({1:'클릭',3:'휠',5:'이동'}[b.action]||'동작');if(b.type!=='key')return '기존 HID 설정';if(b.steps.length===1&&!b.steps[0].mods&&!b.steps[0].code)return '미설정';return b.steps.map(s=>[s.mods&1?'Ctrl':'',s.mods&2?'Shift':'',s.mods&4?'Alt':'',s.mods&8?'Win':'',s.code?keyName(s.code):''].filter(Boolean).join('+')).join(', ')}
@@ -205,7 +205,7 @@ function renderKeys(){const l=viewReady?profile.layers[layer]:{fusion:{},binding
 function buildTree(){const m=new Map();for(const x of catalog.entries){if(!m.has(x.id))m.set(x.id,{id:x.id,name:x.name,ko:x.name,en:overlay?.commands?.[x.id]||'',panel:x.panel,paths:[]})}for(const x of imported){if(!m.has(x.id))m.set(x.id,x);else if(x.description)m.get(x.id).description=x.description}for(const c of cameraCommands)m.set(c.id,c);for(const id of codeIds)if(!m.has(id)&&!KNOB_MARKERS.includes(id)&&(!orbitBase(id)||orbitBase(id)===id))m.set(id,{id,name:overlay?.commands?.[id]||id,en:overlay?.commands?.[id]||id});commands=[...m.values()];tree=window.FusionMenuTree.fromMenuCatalog(catalog,commands);renderCommands();renderKeys()}
 function tabs(el,items,current,kind,change){el.replaceChildren();el.style.setProperty('--columns',String(Math.max(9,items.length)));for(const x of items){let b=document.createElement('button');const name=document.createElement('span');name.className='menu-name';setWordLabel(name,window.FusionMenuTree.localizedLabel(x,kind,language,overlay));b.append(name);b.title=name.textContent;b.classList.toggle('active',x.key===current);b.onclick=()=>change(x.key);el.append(b)}}
 function detail(c){$('detailTitle').textContent=commandName(c);$('detailBody').textContent='ID: '+c.id+'\n한국어: '+c.name+'\nEnglish: '+(c.en||'미수집')+'\n'+(c.description||'설명 미수집');$('detail').showModal()}
-function renderCommands(){if(!tree.length)return;if(!tree.some(t=>t.key===area))area=tree[0].key;const t=tree.find(x=>x.key===area);const panels=[...t.children.values()];if(!panels.some(x=>x.key===panel))panel=panels[0]?.key||'';tabs($('workspaces'),tree,area,'tab',k=>{area=k;panel='';cameraOnly=false;allMode=false;renderCommands()});tabs($('menus'),panels,panel,'panel',k=>{panel=k;cameraOnly=false;allMode=false;renderCommands()});let q=$('search').value.trim().toLowerCase();let p=t.children.get(panel);let items=cameraOnly&&!q?cameraCommands:allMode&&!q?commands:q?commands.filter(c=>[c.id,c.name,c.en].some(x=>String(x||'').toLowerCase().includes(q))):p?window.FusionMenuTree.descendants(p):[];$('path').textContent=cameraOnly&&!q?'시점 제어':allMode&&!q?'전체 명령':q?'전체 명령 검색':t.name+' / '+(p?.name||'');$('count').textContent=items.length+'개';$('commands').replaceChildren();for(const c of items.slice(0,visibleLimit)){let card=document.createElement('div');card.className='command-card';card.dataset.commandId=c.id;card.tabIndex=0;card.setAttribute('role','button');card.draggable=true;card.title=c.name+'\n'+(c.en||'영문명 미수집')+'\n'+c.id+(c.description?'\n'+c.description:'');card.append(art(c.id));let n=document.createElement('span');n.className='name';setWordLabel(n,commandName(c));card.append(n);let info=document.createElement('button');info.className='info';info.textContent='ⓘ';info.title='명령 정보';info.onclick=e=>{e.stopPropagation();detail(c)};card.append(info);card.onclick=()=>{chosen=c;for(const e of $('commands').children)e.classList.toggle('selected',e===card);controls()};card.onkeydown=e=>{if(e.key==='Enter'){card.click();if(selected!==null)assign(selected,c,selectedHeld)}};card.ondragstart=e=>{e.dataTransfer.setData('application/x-fusion-macro-command',c.id);e.dataTransfer.effectAllowed='copy'};$('commands').append(card)}$('catalogStatus').textContent='명령 '+commands.length+'개 · 로컬 원본 '+icons.size+'개 · 기본 벡터 '+new Set(commands.map(c=>iconKind(c.id,c))).size+'종';$('more').hidden=items.length<=visibleLimit;fitLabels()}
+function renderCommands(){if(!tree.length)return;if(!tree.some(t=>t.key===area))area=tree[0].key;const t=tree.find(x=>x.key===area);const panels=[...t.children.values()];if(!panels.some(x=>x.key===panel))panel=panels[0]?.key||'';tabs($('workspaces'),tree,area,'tab',k=>{area=k;panel='';cameraOnly=false;allMode=false;renderCommands()});tabs($('menus'),panels,panel,'panel',k=>{panel=k;cameraOnly=false;allMode=false;renderCommands()});let q=$('search').value.trim().toLowerCase();let p=t.children.get(panel);let items=cameraOnly&&!q?cameraCommands:allMode&&!q?commands:q?commands.filter(c=>[c.id,c.name,c.en].some(x=>String(x||'').toLowerCase().includes(q))):p?window.FusionMenuTree.descendants(p):[];$('path').textContent=cameraOnly&&!q?'시점 제어':allMode&&!q?'전체 명령':q?'전체 명령 검색':t.name+' / '+(p?.name||'');$('count').textContent=items.length+'개';$('commands').replaceChildren();for(const c of items.slice(0,visibleLimit)){let card=document.createElement('div');card.className='command-card';card.dataset.commandId=c.id;card.tabIndex=0;card.setAttribute('role','button');card.draggable=true;card.title=c.name+'\n'+(c.en||'영문명 미수집')+'\n'+c.id+(c.description?'\n'+c.description:'');card.append(art(c.id));let n=document.createElement('span');n.className='name';setWordLabel(n,commandName(c));card.append(n);let info=document.createElement('button');info.className='info';info.textContent='ⓘ';info.title='명령 정보';info.onclick=e=>{e.stopPropagation();detail(c)};card.append(info);card.onclick=()=>{chosen=c;registerSource='fusion';for(const e of $('commands').children)e.classList.toggle('selected',e===card);controls()};card.onkeydown=e=>{if(e.key==='Enter'){card.click();if(selected!==null)assign(selected,c,selectedHeld)}};card.classList.toggle('selected',registerSource==='fusion'&&chosen?.id===c.id);card.ondragstart=e=>{e.dataTransfer.setData('application/x-fusion-macro-command',c.id);e.dataTransfer.effectAllowed='copy'};$('commands').append(card)}$('catalogStatus').textContent='명령 '+commands.length+'개 · 로컬 원본 '+icons.size+'개 · 기본 벡터 '+new Set(commands.map(c=>iconKind(c.id,c))).size+'종';$('more').hidden=items.length<=visibleLimit;fitLabels()}
 $('connect').onclick=()=>run(async()=>{readReady=false;viewReady=false;selected=null;connecting=true;renderKeys();state(desktopMode?'USB 장치 검색 중':'장치 목록에서 USB Composite Device를 선택하고 연결하세요.');try{await device.connect();state('연결됨 · 읽기 필요')}catch(e){state(e.name==='NotFoundError'?'연결 취소 또는 장치 없음':e.message);log(e.message)}finally{connecting=false;updateConnection()}});$('read').onclick=()=>run(async()=>{const discard=pending.size&&!restoreStaged;if(discard&&!confirm('이전 미전송 변경을 폐기하고 키보드의 실제 설정을 읽을까요? 취소하면 이번 읽기를 중단합니다.'))return;readReady=false;viewReady=false;selected=null;renderKeys();const raw=await device.read();if(!completeRead(raw))throw Error('전체 63 슬롯 읽기 실패 · 편집 데이터 보존, 쓰기 중단');await putAsset({id:'device-backup',value:{format:'fusion-macro-studio-device-backup-v1',created:new Date().toISOString(),layers:raw.map(m=>[...m].map(([slot,a])=>({slot,raw:[...a]})))}});if(discard){pending.clear();if(localMode){const current=await localApi('profile');profile=current.profile?validProfile(current.profile):blank();revision=current.revision;syncDirty=false;}}for(let i=0;i<3;i++){let l=profile.layers[i];for(const [slot,a] of raw[i]){if(pending.has(i+':'+slot))continue;let b=readBinding(a);if(b)l.bindings[slot]=b;else delete l.bindings[slot];const direct=directMeta(b);if(direct){l.fusion[slot]={id:direct.id,name:direct.name}}else if(l.fusion[slot]&&(!localMode||!sameKey(a,trigger(i,slot)))){delete l.fusion[slot];if(localMode)syncDirty=true}}}readReady=true;viewReady=true;restoreStaged=false;persist();state('읽기 완료 · '+raw.reduce((n,m)=>n+m.size,0)+'/63 응답')});
 $('write').onclick=()=>run(async()=>{readReady=false;const result=await device.write([...pending.values()],async raw=>{await putAsset({id:'before-write-backup',value:{format:'fusion-macro-studio-device-backup-v1',created:new Date().toISOString(),layers:raw.map(m=>[...m].map(([slot,a])=>({slot,raw:[...a]})))}})});if(!result){readReady=true;return}if(!result.complete||result.unexpected.length){readReady=false;viewReady=false;selected=null;state('재읽기 이상 · 미전송 변경 유지 · 장치를 다시 읽으세요');log('재읽기 누락 또는 변경하지 않은 슬롯 불일치 '+result.unexpected.length+'개');return}const bad=new Set(result.failed.map(x=>x.layer+':'+x.slot));for(const k of pending.keys())if(!bad.has(k))pending.delete(k);readReady=!result.failed.length;viewReady=readReady;if(!viewReady)selected=null;const summary=result.failed.length?'재읽기 불일치 '+result.failed.length+'개 · 다시 읽기 필요':'쓰기 및 전체 슬롯 재읽기 확인 '+result.changed+'개';state(summary);if(localMode&&!result.failed.length&&!pending.size){syncDirty=true;persist();await syncProfile(summary)}else persist()});
 if(navigator.hid)navigator.hid.addEventListener('disconnect',e=>{if(e.device===device.dev){device.verified=false;readReady=false;viewReady=false;selected=null;state('연결 해제');renderKeys()}});
@@ -225,7 +225,12 @@ $('open').onclick=()=>$('profileFile').click();$('profileFile').onchange=async e
  readReady=false;viewReady=false;restoreStaged=true;selected=null;persist();state('불러오기 완료 · 복원 대기 '+next.changes.length+'개 · 제외 '+next.skipped.length+'개 · 연결 후 읽기 → 쓰기');if(next.skipped.length)log('복원 제외: '+next.skipped.map(c=>(c.layer+1)+'층/'+c.slot).join(', '));
  });
 };
-$('assign').onclick=()=>assign(selected,chosen,selectedHeld);function clearSelected(){
+$('assign').onclick=()=>{
+ if($('assign').disabled)return;
+ if(registerSource==='shortcut')applyShortcut();
+ else if(registerSource==='key')applyKnobKey();
+ else if(registerSource==='fusion'&&chosen)assign(selected,chosen,selectedHeld);
+};function clearSelected(){
  if(selected===null||busy||!viewReady||!readReady)return;
  if(selectedHeld){editHeld(selected,null);return}
  const l=profile.layers[layer],slot=selected,pair=pairInfo(l.bindings[slot],codeIds);
@@ -237,8 +242,31 @@ $('assign').onclick=()=>assign(selected,chosen,selectedHeld);function clearSelec
 
 // Draft shortcut state is scoped to the selected physical button and current binding.
 let shortcutMode='keyboard',shortcutTarget='',shortcutMods=0,shortcutCode=0;
+let registerSource=null,registerTarget='';
+function markRegisterSource(source){
+ registerSource=source;
+ if(source!=='fusion'){chosen=null;for(const el of $('commands').children)el.classList.remove('selected')}
+}
+function syncRegister(){
+ const ready=!busy&&localReady&&viewReady&&readReady&&codeReady&&selected!==null;
+ const shortcut=registerSource==='shortcut'&&selected<=12&&!selectedHeld&&!shortcutIssue(shortcutMods,shortcutCode);
+ const key=registerSource==='key'&&selected>=16&&!selectedHeld&&!!$('keyCode').value;
+ const fusion=registerSource==='fusion'&&!!chosen;
+ const button=$('assign');
+ button.disabled=!(ready&&(shortcut||key||fusion));
+ const label=shortcut?shortcutLabel(shortcutMods,shortcutCode):key?keyName(Number($('keyCode').value)):fusion?commandName(chosen):'';
+ button.title=label?'등록할 명령: '+label:'Fusion 명령 또는 단축키를 선택하세요.';
+ const info=$('selectedInfo');info.title=info.textContent;
+}
+function shortcutChanged(){markRegisterSource('shortcut');syncShortcutEditor();syncRegister()}
 const shortcutButtons=[],shortcutMenus=[];
 function syncShortcutEditor(){
+ const targetSlot=viewReady&&readReady&&selected!==null?layer+':'+selected+':'+selectedHeld:'';
+ if(targetSlot!==registerTarget){
+  registerTarget=targetSlot;
+  if(registerSource!=='fusion')registerSource=null;
+  $('keyCode').value='';
+ }
  const enabled=selected!==null&&selected<=12&&viewReady&&readReady&&!selectedHeld;
  $('shortcutEditor').hidden=!enabled;
  $('knobKeyEditor').hidden=!(selected!==null&&selected>=16&&viewReady&&readReady);
@@ -261,7 +289,7 @@ function syncShortcutEditor(){
  for(const radio of document.querySelectorAll('[name=shortcutMode]'))radio.disabled=!enabled||busy;
  const issue=shortcutIssue(shortcutMods,shortcutCode);
  $('shortcutNotice').textContent=shortcutCode?(issue||(shortcutCode>=104&&shortcutCode<=115?'F13~F24는 이 기기의 블루투스 입력이 확인되지 않았습니다.':'')):'';
- $('shortcutApply').disabled=!enabled||busy||!!issue;
+ $('shortcutNotice').hidden=!$('shortcutNotice').textContent;
 }
 for(const p of PRESETS)$('shortcutPreset').append(new Option(p.label,p.id));
 const windowsGroup=document.createElement('optgroup');windowsGroup.label='Windows 전역 단축키';
@@ -271,11 +299,11 @@ $('shortcutPreset').onchange=()=>{
  const preset=ALL_PRESETS.find(p=>p.id===$('shortcutPreset').value);
  if(preset){shortcutMods=preset.mods;shortcutCode=preset.code;}
  else{shortcutMods=0;shortcutCode=0;}
- syncShortcutEditor();
+ shortcutChanged();
 };
 for(const [label,bit] of MODIFIERS){
  const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('aria-pressed','false');
- b.onclick=()=>{shortcutMods^=bit;syncShortcutEditor()};shortcutButtons.push([bit,b]);$('shortcutChoices').append(b);
+ b.onclick=()=>{shortcutMods^=bit;shortcutChanged()};shortcutButtons.push([bit,b]);$('shortcutChoices').append(b);
 }
 for(const group of GROUPS){
  const menu=document.createElement('select');menu.setAttribute('aria-label',group.label);menu.append(new Option(group.label,''));
@@ -284,24 +312,24 @@ for(const group of GROUPS){
   if(key.category!==category){category=key.category;target=category?document.createElement('optgroup'):menu;if(category){target.label=category;menu.append(target)}}
   target.append(new Option(key.label,String(key.usage)));
  }
- menu.onchange=()=>{shortcutCode=Number(menu.value)||0;syncShortcutEditor()};shortcutMenus.push([group,menu]);$('shortcutChoices').append(menu);
+ menu.onchange=()=>{shortcutCode=Number(menu.value)||0;shortcutChanged()};shortcutMenus.push([group,menu]);$('shortcutChoices').append(menu);
 }
 for(const radio of document.querySelectorAll('[name=shortcutMode]'))radio.onchange=()=>{if(radio.checked){shortcutMode=radio.value;syncShortcutEditor();if(shortcutMode==='keyboard')$('shortcutCapture').focus()}};
 $('shortcutCapture').onkeydown=e=>{
  if(shortcutMode!=='keyboard'||$('shortcutCapture').disabled)return;
  e.preventDefault();e.stopPropagation();if(e.repeat)return;
- const key=captureShortcut(e);if(key){shortcutMods=key.mods;shortcutCode=key.code;syncShortcutEditor()}
+ const key=captureShortcut(e);if(key){shortcutMods=key.mods;shortcutCode=key.code;shortcutChanged()}
 };
 $('shortcutCapture').onkeyup=e=>{
- if(e.code==='PrintScreen'&&shortcutMode==='keyboard'&&!$('shortcutCapture').disabled){e.preventDefault();e.stopPropagation();const key=captureShortcut(e);if(key){shortcutMods=key.mods;shortcutCode=key.code;syncShortcutEditor()}}
+ if(e.code==='PrintScreen'&&shortcutMode==='keyboard'&&!$('shortcutCapture').disabled){e.preventDefault();e.stopPropagation();const key=captureShortcut(e);if(key){shortcutMods=key.mods;shortcutCode=key.code;shortcutChanged()}}
 };
-$('shortcutApply').onclick=()=>{
+function applyShortcut(){
  if(busy||!viewReady||!readReady||selected===null||selected>12||selectedHeld)return;
  const b=shortcutBinding(shortcutMods,shortcutCode),l=profile.layers[layer],prior=l.bindings[selected];
  const same=prior?.type==='key'&&prior.delay===0&&prior.steps?.length===1&&prior.steps[0].mods===shortcutMods&&prior.steps[0].code===shortcutCode&&!l.fusion[selected];
  if(same){state('이미 등록된 단축키입니다');return;}
  if((l.fusion[selected]||bindingName(prior)!=='미설정')&&!confirm('기존 설정을 단축키로 교체할까요?'))return;
- delete l.fusion[selected];setPending(selected,b);renderKeys();state('단축키 등록 대기 · 쓰기 필요');
+ delete l.fusion[selected];setPending(selected,b);registerSource=null;renderKeys();state('단축키 등록 대기 · 쓰기 필요');
 };
 for(const code of [...Array.from({length:26},(_,i)=>i+4),40,41,42,43,44,...Array.from({length:12},(_,i)=>i+58),79,80,81,82,...Array.from({length:12},(_,i)=>i+104)]){let o=document.createElement('option');o.value=code;o.textContent=keyName(code);$('keyCode').append(o)}
 function clearLayers(all){
@@ -315,7 +343,7 @@ function clearLayers(all){
  if(localMode)syncDirty=true;selected=null;persist();renderKeys();state('지우기 대기 · 쓰기 필요');
 }
 $('clearLayer').onclick=()=>clearLayers(false);$('clearAll').onclick=()=>clearLayers(true);
-$('setKey').onclick=()=>{if(selected===null||busy||!viewReady||!readReady||selectedHeld)return;const l=profile.layers[layer];if(pairInfo(l.bindings[selected],codeIds)?.held){state('누른 채 회전 설정을 먼저 제거하세요');return;}if(pressSlot(selected)){const k=(selected-17)/3;preserveLegacyHeld(l,k);knobViews[layer][k]=false}delete profile.layers[layer].fusion[selected];setPending(selected,{type:'key',steps:[{mods:0,code:Number($('keyCode').value)}],delay:0});renderKeys()};$('orientation').value=orientation;$('orientation').onchange=e=>{orientation=e.target.value;localStorage.setItem(store+'.orientation',orientation);renderKeys()};
+$('keyCode').onchange=()=>{markRegisterSource('key');syncRegister()};function applyKnobKey(){if(selected===null||selected<16||!$('keyCode').value||busy||!viewReady||!readReady||selectedHeld)return;const l=profile.layers[layer];if(pairInfo(l.bindings[selected],codeIds)?.held){state('누른 채 회전 설정을 먼저 제거하세요');return;}if(pressSlot(selected)){const k=(selected-17)/3;preserveLegacyHeld(l,k);knobViews[layer][k]=false}delete profile.layers[layer].fusion[selected];setPending(selected,{type:'key',steps:[{mods:0,code:Number($('keyCode').value)}],delay:0});registerSource=null;renderKeys()};$('orientation').value=orientation;$('orientation').onchange=e=>{orientation=e.target.value;localStorage.setItem(store+'.orientation',orientation);renderKeys()};
 $('camera').onclick=()=>{cameraOnly=true;allMode=false;$('search').value='';renderCommands()};$('more').onclick=()=>{visibleLimit+=400;renderCommands()};$('search').oninput=()=>{visibleLimit=400;renderCommands()};$('resetSearch').onclick=()=>{$('search').value='';cameraOnly=false;allMode=true;renderCommands()};for(const lang of ['ko','en'])$(lang).onclick=()=>{language=lang;for(const x of ['ko','en'])$(x).setAttribute('aria-pressed',String(x===lang));renderCommands();renderKeys()};$('closeDetail').onclick=()=>$('detail').close();
 $('icons').onclick=()=>$('iconFiles').click();$('iconFiles').onchange=async e=>{let added=0;try{for(const f of e.target.files){if(!/\.png$/i.test(f.name)||f.size>768*1024)continue;const id=f.name.replace(/\.png$/i,'');if(icons.has(id))URL.revokeObjectURL(icons.get(id));await putAsset({id:'icon:'+id,value:f});icons.set(id,URL.createObjectURL(f));added++}renderCommands();renderKeys();state('원본 아이콘 '+added+'개 저장')}catch(err){state('원본 아이콘 저장 실패: '+err.message)}finally{e.target.value=''}};
 $('importCatalog').onclick=()=>$('catalogFile').click();$('catalogFile').onchange=async e=>{try{let raw=JSON.parse(await e.target.files[0].text());let arr=Array.isArray(raw)?raw:raw.commands||raw.items||raw.catalog;if(!Array.isArray(arr))throw Error('지원하지 않는 카탈로그');const next=new Map(imported.map(c=>[c.id,c]));for(const v of arr){if(!v||typeof v!=='object')continue;let id=v.id||v.commandId||v.command_id,name=v.koName||v.name||v.label;if(typeof id==='string'&&typeof name==='string'&&id.length<=256&&name.length<=160)next.set(id,{id,name,en:v.englishName||v.nameEn||overlay?.commands?.[id]||'',description:typeof v.description==='string'?v.description:''})}imported=[...next.values()];await putAsset({id:'commands',value:imported});buildTree()}catch(err){$('catalogStatus').textContent=err.message}finally{e.target.value=''}};
@@ -349,7 +377,7 @@ if(localMode){
  if(desktopMode){
   $('desktopCheck').hidden=false;
   const api=window.fmsDesktop;let info={state:'idle'},addin={state:'idle'},checking=false,addinBusy=false;
-  function title(){const app=info.current||'0.5.3',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
+  function title(){const app=info.current||'0.5.4',version=addin.current===null?'미설치':addin.current||'확인 필요';$('appTitleVersion').textContent='앱 '+app+' · 애드인 '+version}
   function safe(){
    if(busy){alert('기기 통신이 진행 중입니다. 완료 후 다시 시도하세요.');return false}
    if((pending.size||syncDirty)&&!confirm('키보드에 아직 쓰지 않은 변경사항이 있습니다. 변경사항을 보관하고 업데이트할까요?'))return false;

@@ -84,7 +84,7 @@
 
 /* Compact DeckForge-style shortcut fields, scoped to the twelve key properties. */
 #shortcutEditor[hidden],#knobKeyEditor[hidden]{display:none}
-#shortcutEditor{display:grid;gap:8px;margin-top:8px;border-top:1px solid var(--line);padding-top:10px}
+#shortcutEditor{display:grid;gap:5px;margin-top:6px}
 .shortcut-mode,.shortcut-choices,.shortcut-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
 .shortcut-mode{font-size:12px}.shortcut-mode label{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
 .shortcut-mode input{margin:0;accent-color:var(--accent)}
@@ -101,3 +101,21 @@
 .shortcut-capture-wrap #shortcutCapture{flex:1;min-width:0;width:0;border:0;background:transparent;outline:none;padding:7px 0}
 .shortcut-function{flex:0 1 auto;max-width:55%;font-size:11px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis;overflow:hidden;text-align:right}
 .shortcut-function[hidden]{display:none}
+
+/* One compact registration action, right aligned in the property header. */
+.key-column .properties{padding:8px;container-type:inline-size}
+.property-heading{display:flex;align-items:center;gap:7px;min-width:0}
+.property-heading h3{margin:0;flex:none;font-size:13px}
+.property-heading #selectedInfo{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.property-heading #assign{flex:none;margin-left:auto;padding:5px 8px;font-size:12px;white-space:nowrap}
+.shortcut-mode{gap:4px}
+.shortcut-mode #shortcutPreset{flex:1 1 78px;padding:4px;font-size:11px}
+.shortcut-mode label,.shortcut-mode span{font-size:11px}
+.shortcut-field{gap:5px}
+.shortcut-capture-wrap #shortcutCapture{padding:5px 0}
+.shortcut-choices{display:grid;grid-template-columns:repeat(4,max-content) repeat(3,minmax(0,1fr));gap:3px}
+.shortcut-choices button,.shortcut-choices select{font-size:11px;padding:4px 3px;min-width:0}
+.shortcut-choices select{width:100%}
+#shortcutNotice[hidden]{display:none}
+#knobKeyEditor{margin:5px 0 0}
+@container(max-width:340px){.shortcut-choices{grid-template-columns:repeat(4,max-content) minmax(0,1fr) minmax(0,1fr)}.shortcut-choices select:last-child{grid-column:1/-1}.shortcut-mode #shortcutPreset{flex-basis:90px}}
