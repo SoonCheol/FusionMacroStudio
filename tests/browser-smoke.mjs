@@ -124,6 +124,13 @@ try{
  await page.locator('#shortcutCapture').click();
  await page.keyboard.press('Control+c');
  assert.equal(await page.locator('#shortcutCapture').inputValue(),'Ctrl + C');
+ assert.equal(await page.locator('#shortcutPreset').inputValue(),'copy');
+ assert.equal(await page.locator('#shortcutFunction').innerText(),'복사');
+ assert.equal(await page.locator('#shortcutPreset option').count(),71);
+ await page.locator('#shortcutPreset').selectOption('screenshot');
+ assert.equal(await page.locator('#shortcutCapture').inputValue(),'Shift + Win + S');
+ assert.equal(await page.locator('#shortcutFunction').innerText(),'영역 캡처');
+ await page.locator('#shortcutPreset').selectOption('copy');
  await page.locator('#shortcutApply').click();
  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('fusion-macro-studio.v1')).layers[0].bindings[1].steps),[{mods:1,code:6}]);
  await page.locator('[name="shortcutMode"][value="select"]').check();

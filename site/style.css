@@ -93,3 +93,11 @@
 .shortcut-field input:disabled{opacity:1;color:var(--fg)}
 .shortcut-choices button,.shortcut-choices select{padding:5px 6px;font-size:11px;max-width:100%;min-width:0}
 .shortcut-actions{justify-content:space-between}.shortcut-actions .hint{flex:1;min-width:0;overflow-wrap:anywhere}.shortcut-actions button{margin-left:auto;white-space:nowrap}
+
+/* The function name is inside the same bordered field, never overlapping the key text. */
+.shortcut-mode #shortcutPreset{flex:1 1 100px;max-width:100%;min-width:0;font-size:12px;padding:5px 6px}
+.shortcut-capture-wrap{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:0 7px}
+.shortcut-capture-wrap:focus-within{outline:2px solid var(--selected);outline-offset:1px}
+.shortcut-capture-wrap #shortcutCapture{flex:1;min-width:0;width:0;border:0;background:transparent;outline:none;padding:7px 0}
+.shortcut-function{flex:0 1 auto;max-width:55%;font-size:11px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis;overflow:hidden;text-align:right}
+.shortcut-function[hidden]{display:none}
